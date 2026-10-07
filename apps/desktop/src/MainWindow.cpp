@@ -6,6 +6,7 @@
 #include "TelemetryStore.hpp"
 #include "Theme.hpp"
 
+#include <QDesktopServices>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -16,6 +17,7 @@
 #include <QStatusBar>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <cmath>
 #include <optional>
@@ -49,6 +51,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   auto* connectBtn = new QPushButton(QStringLiteral("Connect"));
   connectBtn->setObjectName(QStringLiteral("primary"));
   auto* disconnectBtn = new QPushButton(QStringLiteral("Disconnect"));
+  auto* accountBtn = new QPushButton(QStringLiteral("Account"));
   connection_ = new QLabel(QStringLiteral("Disconnected"));
   connection_->setProperty("muted", true);
 
@@ -58,6 +61,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   top->addWidget(port_);
   top->addWidget(connectBtn);
   top->addWidget(disconnectBtn);
+  top->addWidget(accountBtn);
   top->addWidget(connection_);
   root->addLayout(top);
 
@@ -107,6 +111,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     client_->connectToHub(host_->text().trimmed(), static_cast<quint16>(port_->value()));
   });
   connect(disconnectBtn, &QPushButton::clicked, client_, &HubClient::disconnectFromHub);
+  connect(accountBtn, &QPushButton::clicked, this, [this] {
+    const auto url = QStringLiteral("http://%1:%2/account/login").arg(host_->text().trimmed()).arg(port_->value());
+    QDesktopServices::openUrl(QUrl(url));
+  });
   connect(client_, &HubClient::connectionChanged, this, [this](bool ok, const QString& detail) {
     connection_->setText(detail);
     connection_->setStyleSheet(ok ? QStringLiteral("color: #7dcea0;") : QStringLiteral("color: #e7b549;"));

@@ -15,6 +15,7 @@ if str(HUB_DIR) not in sys.path:
     sys.path.insert(0, str(HUB_DIR))
 
 from smarthouse_hub.config import default_config_path, load_house_config
+from smarthouse_hub.crypto_vault import UserVault
 from smarthouse_hub.grpc_servicer import HouseHubServicer
 from smarthouse_hub.http_app import create_http_app
 from smarthouse_hub.store import HouseStore
@@ -31,7 +32,7 @@ async def simulator_loop(store: HouseStore) -> None:
 async def run(config_path: Path, http_host: str, http_port: int, grpc_port: int) -> None:
     config = load_house_config(config_path)
     store = HouseStore(config)
-    http_app = create_http_app(store)
+    http_app = create_http_app(store, UserVault())
     runner = web.AppRunner(http_app, access_log=None)
     await runner.setup()
     site = web.TCPSite(runner, http_host, http_port)
@@ -47,6 +48,7 @@ async def run(config_path: Path, http_host: str, http_port: int, grpc_port: int)
 
     print(f"Smart House hub  '{config.house_name}'")
     print(f"  HTTP/WebSocket  http://{http_host}:{http_port}/")
+    print(f"  Account         http://{http_host}:{http_port}/account/login")
     print(f"  Telemetry WS    ws://{http_host}:{http_port}/v1/telemetry")
     print(f"  gRPC            {http_host}:{grpc_port}")
     print(f"  Devices         {len(config.devices)}")

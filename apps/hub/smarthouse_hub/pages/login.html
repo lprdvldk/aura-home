@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in · Smart House</title>
+  <link rel="stylesheet" href="/static/account.css" />
+</head>
+<body class="auth">
+  <main class="panel">
+    <p class="eyebrow">Aura Home</p>
+    <h1>Sign in</h1>
+    <p class="sub">Your password unlocks the AES-256-GCM vault for this account. Personal details never sit on disk in plaintext.</p>
+    <label>Username <input id="username" autocomplete="username" /></label>
+    <label>Password <input id="password" type="password" autocomplete="current-password" /></label>
+    <p class="error" id="error" hidden></p>
+    <button id="submit" type="button">Sign in</button>
+    <p class="links"><a href="/account/register">Create an account</a> · <a href="/">Climate monitor</a></p>
+  </main>
+  <script>
+    document.getElementById("submit").onclick = async () => {
+      const error = document.getElementById("error");
+      error.hidden = true;
+      const res = await fetch("/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          username: document.getElementById("username").value,
+          password: document.getElementById("password").value,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { error.hidden = false; error.textContent = data.error || "Sign in failed"; return; }
+      location.href = "/account/bio";
+    };
+  </script>
+</body>
+</html>

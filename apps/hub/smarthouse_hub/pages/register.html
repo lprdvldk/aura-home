@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Register · Smart House</title>
+  <link rel="stylesheet" href="/static/account.css" />
+</head>
+<body class="auth">
+  <main class="panel">
+    <p class="eyebrow">Aura Home</p>
+    <h1>Create account</h1>
+    <p class="sub">Choose a local username and a password of at least 10 characters. The password is Argon2id-hashed; bio fields are encrypted before they are written.</p>
+    <label>Username <input id="username" autocomplete="username" /></label>
+    <label>Password <input id="password" type="password" autocomplete="new-password" /></label>
+    <label>Full name <input id="full_name" autocomplete="name" /></label>
+    <label>Email <input id="email" autocomplete="email" /></label>
+    <p class="error" id="error" hidden></p>
+    <button id="submit" type="button">Register</button>
+    <p class="links"><a href="/account/login">Already have an account</a> · <a href="/">Climate monitor</a></p>
+  </main>
+  <script>
+    document.getElementById("submit").onclick = async () => {
+      const error = document.getElementById("error");
+      error.hidden = true;
+      const res = await fetch("/v1/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          username: document.getElementById("username").value,
+          password: document.getElementById("password").value,
+          profile: {
+            full_name: document.getElementById("full_name").value,
+            email: document.getElementById("email").value,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { error.hidden = false; error.textContent = data.error || "Could not register"; return; }
+      location.href = "/account/bio";
+    };
+  </script>
+</body>
+</html>

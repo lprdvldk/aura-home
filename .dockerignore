@@ -1,0 +1,12 @@
+.venv
+.git
+build
+build-agent
+build-desktop
+data
+**/.pytest_cache
+**/__pycache__
+**/*.pyc
+.idea
+.vscode
+*.log

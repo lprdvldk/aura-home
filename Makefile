@@ -4,7 +4,7 @@ PY := $(VENV)/bin/python
 HTTP_PORT ?= 18443
 GRPC_PORT ?= 18551
 
-.PHONY: venv proto hub test dht11 desktop
+.PHONY: venv proto hub test dht11 desktop compose compose-up
 
 venv:
 	$(PYTHON) -m venv $(VENV)
@@ -29,3 +29,9 @@ dht11:
 desktop:
 	cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 	cmake --build build --target smarthouse_desktop
+
+compose:
+	docker compose build hub dht11-agent
+
+compose-up:
+	docker compose up --build

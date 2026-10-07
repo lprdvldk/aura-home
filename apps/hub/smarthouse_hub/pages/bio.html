@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bio · Smart House</title>
+  <link rel="stylesheet" href="/static/account.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Household bio</h1>
+      <p class="sub">Shown only after sign-in. Stored as AES-256-GCM ciphertext under <code>data/users/</code>.</p>
+    </div>
+    <nav>
+      <a href="/">Monitor</a>
+      <span id="who"></span>
+      <button id="logout" type="button">Sign out</button>
+    </nav>
+  </header>
+  <main class="bio">
+    <p class="error" id="error" hidden></p>
+    <p class="ok" id="saved" hidden>Encrypted profile saved.</p>
+    <form id="form" hidden>
+      <label>Full name <input name="full_name" autocomplete="name" /></label>
+      <label>Email <input name="email" autocomplete="email" /></label>
+      <label>Phone <input name="phone" autocomplete="tel" /></label>
+      <label>Date of birth <input name="date_of_birth" placeholder="YYYY-MM-DD" /></label>
+      <label>Address <input name="address" autocomplete="street-address" /></label>
+      <label>City <input name="city" autocomplete="address-level2" /></label>
+      <label>Country <input name="country" autocomplete="country-name" /></label>
+      <label>Emergency contact <input name="emergency_contact" /></label>
+      <label>Household role <input name="household_role" placeholder="Owner, resident, guest" /></label>
+      <label>Notes <textarea name="notes" rows="3"></textarea></label>
+      <button type="submit">Save encrypted bio</button>
+    </form>
+  </main>
+  <script>
+    const form = document.getElementById("form");
+    const error = document.getElementById("error");
+    const saved = document.getElementById("saved");
+    async function load() {
+      const res = await fetch("/v1/bio", { credentials: "same-origin" });
+      if (res.status === 401) { location.href = "/account/login"; return; }
+      const data = await res.json();
+      if (!res.ok) { error.hidden = false; error.textContent = data.error; return; }
+      document.getElementById("who").textContent = data.username;
+      Object.entries(data.profile).forEach(([k, v]) => {
+        const el = form.elements[k];
+        if (el) el.value = v;
+      });
+      form.hidden = false;
+    }
+    form.onsubmit = async (ev) => {
+      ev.preventDefault();
+      saved.hidden = true;
+      const profile = {};
+      Array.from(form.elements).forEach((el) => { if (el.name) profile[el.name] = el.value; });
+      const res = await fetch("/v1/bio", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ profile }),
+      });
+      const data = await res.json();
+      if (!res.ok) { error.hidden = false; error.textContent = data.error; return; }
+      error.hidden = true;
+      saved.hidden = false;
+    };
+    document.getElementById("logout").onclick = async () => {
+      await fetch("/v1/auth/logout", { method: "POST", credentials: "same-origin" });
+      location.href = "/account/login";
+    };
+    load();
+  </script>
+</body>
+</html>

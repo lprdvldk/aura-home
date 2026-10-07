@@ -1,8 +1,18 @@
-# Smart House
+# Aura Home (Smart House)
 
-Local-first house monitor: climate (DHT11 temperature + humidity), air quality, and a portable Qt 6 desktop app. The previous Kafka bus is gone. Device agents talk to a single **house hub** over **gRPC**; the desktop (and the hub live view) subscribe to **WebSocket** telemetry for realtime charts.
+Local-first house monitor: climate (DHT11 temperature + humidity), air quality, a portable Qt 6 desktop app, and an encrypted household bio (login / register / personal info). The previous Kafka bus is gone. Device agents talk to a single **house hub** over **gRPC**; the desktop and the hub live view subscribe to **WebSocket** telemetry.
 
-This monorepo is the structure for a whole-home console — rooms, gadgets, thresholds — with one working slice already wired: DHT11 climate plus simulated air quality.
+- **Run everything:** [docs/RUNBOOK.md](docs/RUNBOOK.md)
+- **Architecture layout:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+Quickest local stack (hub + simulated DHT11):
+
+```bash
+docker compose build hub dht11-agent
+docker compose up
+```
+
+Then open http://127.0.0.1:18443/ (monitor) and http://127.0.0.1:18443/account/register (encrypted bio).
 
 ## Architecture
 
@@ -108,9 +118,13 @@ cmake --build build-agent
 ctest --test-dir build-agent --output-on-failure
 ```
 
+## Account (encrypted bio)
+
+Register and sign in at `/account/register` and `/account/login`. Personal fields are Argon2id + AES-256-GCM encrypted at rest under `data/users/`. Telemetry routes stay public so sensors keep working without a session. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Ports
 
 | Service | Default |
 | --- | --- |
-| Hub HTTP + WebSocket | 18443 |
+| Hub HTTP + WebSocket + account pages | 18443 |
 | Hub gRPC | 18551 |

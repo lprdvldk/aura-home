@@ -6,6 +6,7 @@ from pathlib import Path
 from aiohttp.test_utils import TestClient, TestServer
 
 from smarthouse_hub.config import load_house_config
+from smarthouse_hub.crypto_vault import UserVault
 from smarthouse_hub.http_app import create_http_app
 from smarthouse_hub.store import HouseStore
 
@@ -15,9 +16,9 @@ def _store() -> HouseStore:
     return HouseStore(load_house_config(path))
 
 
-def test_health_and_push() -> None:
+def test_health_and_push(tmp_path: Path) -> None:
     store = _store()
-    app = create_http_app(store)
+    app = create_http_app(store, UserVault(tmp_path))
 
     async def run() -> None:
         async with TestClient(TestServer(app)) as client:

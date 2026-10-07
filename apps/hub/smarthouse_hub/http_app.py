@@ -5,18 +5,24 @@ from pathlib import Path
 
 from aiohttp import WSMsgType, web
 
+from smarthouse_hub.auth_http import setup_auth
+from smarthouse_hub.crypto_vault import UserVault
 from smarthouse_hub.models import SensorSample
 from smarthouse_hub.store import HouseStore
 
 DASHBOARD_PATH = Path(__file__).with_name("dashboard.html")
+STATIC_DIR = Path(__file__).with_name("static")
 STORE_KEY = web.AppKey("store", HouseStore)
 
 
-def create_http_app(store: HouseStore) -> web.Application:
+def create_http_app(store: HouseStore, vault: UserVault | None = None) -> web.Application:
     app = web.Application()
     app[STORE_KEY] = store
+    setup_auth(app, vault or UserVault())
     app.router.add_get("/", dashboard)
+    app.router.add_get("/favicon.ico", favicon)
     app.router.add_get("/health", health)
+    app.router.add_static("/static", STATIC_DIR)
     app.router.add_get("/v1/snapshot", snapshot)
     app.router.add_get("/v1/devices", list_devices)
     app.router.add_get("/v1/devices/{device_id}/latest", latest)
@@ -31,11 +37,15 @@ def create_http_app(store: HouseStore) -> web.Application:
 async def _cors(_request: web.Request, response: web.StreamResponse) -> None:
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-    response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
+    response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,OPTIONS"
 
 
 async def dashboard(_request: web.Request) -> web.Response:
     return web.FileResponse(DASHBOARD_PATH)
+
+
+async def favicon(_request: web.Request) -> web.Response:
+    return web.Response(status=204)
 
 
 async def health(request: web.Request) -> web.Response:

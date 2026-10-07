@@ -1,0 +1,47 @@
+services:
+  hub:
+    image: aura-home-hub:local
+    build:
+      context: .
+      dockerfile: docker/hub.Dockerfile
+    ports:
+      - "18443:18443"
+      - "18551:18551"
+    volumes:
+      - ./config:/app/config:ro
+      - hub-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18443/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  dht11-agent:
+    image: aura-home-dht11-agent:local
+    build:
+      context: .
+      dockerfile: docker/dht11-agent.Dockerfile
+    depends_on:
+      hub:
+        condition: service_healthy
+    command: ["--host", "hub", "--port", "18443", "--device-id", "living-room-dht11", "--simulate"]
+    restart: unless-stopped
+
+  desktop:
+    image: aura-home-desktop:local
+    build:
+      context: .
+      dockerfile: docker/desktop.Dockerfile
+    profiles: ["desktop"]
+    network_mode: host
+    environment:
+      DISPLAY: ${DISPLAY:-}
+      QT_QPA_PLATFORM: ${QT_QPA_PLATFORM:-xcb}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    depends_on:
+      hub:
+        condition: service_healthy
+
+volumes:
+  hub-data:
