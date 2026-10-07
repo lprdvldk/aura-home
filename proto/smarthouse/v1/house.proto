@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package smarthouse.v1;
+
+option cc_enable_arenas = true;
+
+// HouseHub is the local control plane for a single home.
+// Device agents (DHT11, air-quality, light, motion) push samples over gRPC.
+// The Qt desktop (and any other UI) uses gRPC for queries/commands and
+// WebSocket `/v1/telemetry` for live charts.
+
+enum DeviceKind {
+  DEVICE_KIND_UNSPECIFIED = 0;
+  DEVICE_KIND_CLIMATE = 1;      // temperature + humidity (DHT11)
+  DEVICE_KIND_AIR_QUALITY = 2;  // PM2.5, VOC, CO2
+  DEVICE_KIND_LIGHT = 3;        // lux / visible / IR
+  DEVICE_KIND_MOTION = 4;
+}
+
+enum DeviceStatus {
+  DEVICE_STATUS_UNSPECIFIED = 0;
+  DEVICE_STATUS_ONLINE = 1;     // live agent heartbeat
+  DEVICE_STATUS_SIMULATED = 2;  // hub-generated until hardware connects
+  DEVICE_STATUS_OFFLINE = 3;
+  DEVICE_STATUS_ERROR = 4;
+  DEVICE_STATUS_DISABLED = 5;
+}
+
+message Device {
+  string id = 1;
+  string name = 2;
+  string room = 3;
+  DeviceKind kind = 4;
+  DeviceStatus status = 5;
+  bool enabled = 6;
+  string driver = 7;  // "dht11", "pms5003", "simulator", ...
+  int32 gpio_pin = 8; // used by GPIO drivers; 0 if unused
+}
+
+message Metric {
+  string name = 1;
+  double value = 2;
+  string unit = 3;
+}
+
+message SensorSample {
+  string device_id = 1;
+  int64 unix_ms = 2;
+  repeated Metric metrics = 3;
+  int32 error_code = 4;
+  string error_message = 5;
+  string source = 6;  // "agent", "simulator"
+}
+
+message ListDevicesRequest {}
+
+message ListDevicesResponse {
+  repeated Device devices = 1;
+}
+
+message GetLatestRequest {
+  string device_id = 1;
+}
+
+message SetEnabledRequest {
+  string device_id = 1;
+  bool enabled = 2;
+}
+
+message PushSampleResponse {
+  bool accepted = 1;
+}
+
+message SubscribeRequest {
+  repeated string device_ids = 1; // empty = all enabled devices
+}
+
+service HouseHub {
+  rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
+  rpc GetLatest(GetLatestRequest) returns (SensorSample);
+  rpc SetEnabled(SetEnabledRequest) returns (Device);
+  rpc PushSample(SensorSample) returns (PushSampleResponse);
+  rpc Subscribe(SubscribeRequest) returns (stream SensorSample);
+}

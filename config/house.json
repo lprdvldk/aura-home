@@ -1,0 +1,50 @@
+{
+  "house_name": "Home",
+  "sample_interval_ms": 1000,
+  "agent_timeout_ms": 5000,
+  "history_points": 360,
+  "thresholds": {
+    "temperature_c": { "low": 16, "high": 28 },
+    "humidity_pct": { "low": 30, "high": 70 },
+    "pm25_ugm3": { "low": 0, "high": 35 },
+    "co2_ppm": { "low": 0, "high": 1200 }
+  },
+  "devices": [
+    {
+      "id": "living-room-dht11",
+      "name": "Living room climate",
+      "room": "Living room",
+      "kind": "climate",
+      "driver": "dht11",
+      "gpio_pin": 16,
+      "enabled": true
+    },
+    {
+      "id": "bedroom-dht11",
+      "name": "Bedroom climate",
+      "room": "Bedroom",
+      "kind": "climate",
+      "driver": "dht11",
+      "gpio_pin": 20,
+      "enabled": true
+    },
+    {
+      "id": "kitchen-air",
+      "name": "Kitchen air quality",
+      "room": "Kitchen",
+      "kind": "air_quality",
+      "driver": "simulator",
+      "gpio_pin": 0,
+      "enabled": true
+    },
+    {
+      "id": "living-room-air",
+      "name": "Living room air quality",
+      "room": "Living room",
+      "kind": "air_quality",
+      "driver": "simulator",
+      "gpio_pin": 0,
+      "enabled": true
+    }
+  ]
+}

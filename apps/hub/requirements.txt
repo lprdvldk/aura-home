@@ -1,0 +1,5 @@
+aiohttp>=3.10
+grpcio>=1.68
+grpcio-tools>=1.68
+protobuf>=5.29
+pytest>=8.0

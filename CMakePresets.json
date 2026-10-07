@@ -1,0 +1,26 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SMART_HOUSE_BUILD_DESKTOP": "ON"
+      }
+    },
+    {
+      "name": "agent-only",
+      "displayName": "Hub agents without Qt",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build-agent",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SMART_HOUSE_BUILD_DESKTOP": "OFF"
+      }
+    }
+  ]
+}

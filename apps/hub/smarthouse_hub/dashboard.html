@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smart House</title>
+  <style>
+    :root {
+      --bg: #10141c;
+      --panel: #171d28;
+      --panel-2: #1d2533;
+      --line: #2a3344;
+      --text: #e8eef8;
+      --muted: #93a0b5;
+      --temp: #f0a36a;
+      --hum: #6ec8c0;
+      --air: #9b8cff;
+      --ok: #7dcea0;
+      --warn: #e7b549;
+      --err: #e07a7a;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 "Segoe UI", sans-serif; }
+    header {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 18px 24px; border-bottom: 1px solid var(--line);
+    }
+    h1 { font-size: 20px; margin: 0; letter-spacing: 0.02em; }
+    .sub { color: var(--muted); font-size: 13px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border-radius: 999px; background: var(--panel-2); color: var(--muted);
+      font-size: 12px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+    .dot.ok { background: var(--ok); }
+    .dot.bad { background: var(--err); }
+    main { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 70px); }
+    aside { border-right: 1px solid var(--line); padding: 16px; }
+    .room { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; margin: 14px 4px 8px; }
+    .device {
+      width: 100%; text-align: left; border: 1px solid transparent; background: transparent;
+      color: var(--text); padding: 10px 12px; border-radius: 10px; cursor: pointer;
+    }
+    .device:hover { background: var(--panel-2); }
+    .device.active { background: var(--panel-2); border-color: var(--line); }
+    .device small { display: block; color: var(--muted); }
+    .content { padding: 20px 24px 32px; }
+    .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+    }
+    .card .label { color: var(--muted); font-size: 12px; }
+    .card .value { font-size: 28px; font-weight: 650; margin-top: 6px; }
+    .card .value.temp { color: var(--temp); }
+    .card .value.hum { color: var(--hum); }
+    .card .value.air { color: var(--air); }
+    .chart-wrap { margin-top: 16px; padding: 12px 16px 8px; }
+    .empty, .error {
+      margin-top: 16px; padding: 28px; text-align: center; color: var(--muted);
+      border: 1px dashed var(--line); border-radius: 14px;
+    }
+    .alerts { margin-top: 16px; display: grid; gap: 8px; }
+    .alert { background: #2a2230; border: 1px solid #4a3948; color: #f0d4d4; padding: 10px 12px; border-radius: 10px; font-size: 13px; }
+    .status-sim { color: #c9b37a; }
+    .status-online { color: var(--ok); }
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      .kpis { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1 id="house-name">Smart House</h1>
+      <div class="sub">Local climate and air-quality monitor · gRPC + WebSocket, no Kafka</div>
+    </div>
+    <div class="pill"><span class="dot" id="conn-dot"></span><span id="conn-label">Connecting…</span></div>
+  </header>
+  <main>
+    <aside id="device-list"></aside>
+    <section class="content">
+      <div class="kpis">
+        <div class="card"><div class="label">Temperature</div><div class="value temp" id="kpi-temp">—</div></div>
+        <div class="card"><div class="label">Humidity</div><div class="value hum" id="kpi-hum">—</div></div>
+        <div class="card"><div class="label">PM2.5</div><div class="value air" id="kpi-pm">—</div></div>
+        <div class="card"><div class="label">CO₂</div><div class="value air" id="kpi-co2">—</div></div>
+      </div>
+      <div class="card chart-wrap">
+        <canvas id="chart" width="960" height="280"></canvas>
+      </div>
+      <div id="empty" class="empty" hidden>No live samples yet. Start the hub and keep this page open.</div>
+      <div id="error" class="error" hidden></div>
+      <div class="alerts" id="alerts"></div>
+    </section>
+  </main>
+  <script>
+    const state = { devices: {}, latest: {}, history: {}, selected: null, alerts: [] };
+    const canvas = document.getElementById("chart");
+    const ctx = canvas.getContext("2d");
+
+    function drawChart() {
+      const id = state.selected || Object.keys(state.history)[0];
+      const points = state.history[id] || [];
+      const kind = state.devices[id]?.kind;
+      const leftName = kind === "air_quality" ? "pm25_ugm3" : "temperature_c";
+      const rightName = kind === "air_quality" ? "co2_ppm" : "humidity_pct";
+      const leftColor = kind === "air_quality" ? "#9b8cff" : "#f0a36a";
+      const rightColor = kind === "air_quality" ? "#c9b37a" : "#6ec8c0";
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = "#171d28";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#93a0b5";
+      ctx.font = "12px Segoe UI, sans-serif";
+      ctx.fillText(kind === "air_quality" ? "PM2.5  ·  CO₂" : "Temperature  ·  Humidity", 16, 18);
+      const left = points.map(p => ({ x: p.unix_ms, y: metric(p, leftName) })).filter(p => p.y != null);
+      const right = points.map(p => ({ x: p.unix_ms, y: metric(p, rightName) })).filter(p => p.y != null);
+      if (!left.length && !right.length) {
+        ctx.fillText("Waiting for samples…", 16, h / 2);
+        return;
+      }
+      const xs = [...left, ...right].map(p => p.x);
+      const minX = Math.min(...xs), maxX = Math.max(...xs) || minX + 1;
+      const plot = (series, color, yMin, yMax) => {
+        if (!series.length) return;
+        ctx.beginPath();
+        series.forEach((p, i) => {
+          const x = 40 + (w - 70) * ((p.x - minX) / Math.max(1, maxX - minX));
+          const y = h - 20 - (h - 50) * ((p.y - yMin) / Math.max(0.01, yMax - yMin));
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      };
+      const lvals = left.map(p => p.y);
+      const rvals = right.map(p => p.y);
+      if (left.length) plot(left, leftColor, Math.min(...lvals) - 1, Math.max(...lvals) + 1);
+      if (right.length) plot(right, rightColor, Math.min(...rvals) - 5, Math.max(...rvals) + 5);
+    }
+
+    function metric(sample, name) {
+      return sample?.metrics?.find(m => m.name === name)?.value;
+    }
+    function fmt(v, unit) {
+      return v == null || Number.isNaN(v) ? "—" : `${Number(v).toFixed(v % 1 ? 1 : 0)}${unit}`;
+    }
+    function setConn(ok, label) {
+      document.getElementById("conn-dot").className = "dot " + (ok ? "ok" : "bad");
+      document.getElementById("conn-label").textContent = label;
+    }
+    function renderDevices() {
+      const byRoom = {};
+      Object.values(state.devices).forEach(d => {
+        (byRoom[d.room] ||= []).push(d);
+      });
+      const root = document.getElementById("device-list");
+      root.innerHTML = "";
+      Object.entries(byRoom).forEach(([room, devices]) => {
+        const h = document.createElement("div");
+        h.className = "room";
+        h.textContent = room;
+        root.appendChild(h);
+        devices.forEach(d => {
+          const b = document.createElement("button");
+          b.className = "device" + (state.selected === d.id ? " active" : "");
+          b.innerHTML = `${d.name}<small class="status-${d.status}">${d.status} · ${d.driver}</small>`;
+          b.onclick = () => { state.selected = d.id; renderDevices(); renderKpis(); renderChart(); };
+          root.appendChild(b);
+        });
+      });
+    }
+    function houseLatest(name) {
+      const samples = Object.values(state.latest);
+      const found = samples.map(s => metric(s, name)).filter(v => v != null);
+      return found.length ? found[found.length - 1] : null;
+    }
+    function renderKpis() {
+      const sample = state.selected ? state.latest[state.selected] : null;
+      const temp = metric(sample, "temperature_c") ?? houseLatest("temperature_c");
+      const hum = metric(sample, "humidity_pct") ?? houseLatest("humidity_pct");
+      const pm = metric(sample, "pm25_ugm3") ?? houseLatest("pm25_ugm3");
+      const co2 = metric(sample, "co2_ppm") ?? houseLatest("co2_ppm");
+      document.getElementById("kpi-temp").textContent = fmt(temp, "°");
+      document.getElementById("kpi-hum").textContent = fmt(hum, "%");
+      document.getElementById("kpi-pm").textContent = fmt(pm, " µg");
+      document.getElementById("kpi-co2").textContent = fmt(co2, " ppm");
+      document.getElementById("empty").hidden = Object.keys(state.latest).length > 0;
+    }
+    function renderChart() { drawChart(); }
+    function renderAlerts() {
+      document.getElementById("alerts").innerHTML = state.alerts.slice(0, 6).map(a =>
+        `<div class="alert">${a.message}</div>`
+      ).join("");
+    }
+    function applySnapshot(msg) {
+      if (msg.house_name) document.getElementById("house-name").textContent = msg.house_name;
+      (msg.devices || []).forEach(d => state.devices[d.id] = d);
+      Object.entries(msg.latest || {}).forEach(([id, sample]) => {
+        state.latest[id] = sample;
+        (state.history[id] ||= []).push(sample);
+      });
+      state.alerts = msg.alerts || [];
+      if (!state.selected) {
+        state.selected = Object.values(state.devices).find(d => d.kind === "climate")?.id
+          || Object.keys(state.devices)[0];
+      }
+      renderDevices(); renderKpis(); renderChart(); renderAlerts();
+    }
+    function ingestSample(msg) {
+      const sample = msg.sample;
+      if (msg.device) state.devices[msg.device.id] = msg.device;
+      state.latest[sample.device_id] = sample;
+      const hist = state.history[sample.device_id] ||= [];
+      hist.push(sample);
+      if (hist.length > 240) hist.splice(0, hist.length - 240);
+      renderKpis();
+      if (sample.device_id === state.selected) renderChart();
+      renderDevices();
+    }
+    function connect() {
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const ws = new WebSocket(`${proto}://${location.host}/v1/telemetry`);
+      ws.onopen = () => { setConn(true, "Live telemetry"); document.getElementById("error").hidden = true; };
+      ws.onclose = () => { setConn(false, "Disconnected — retrying"); setTimeout(connect, 1500); };
+      ws.onerror = () => {
+        const el = document.getElementById("error");
+        el.hidden = false;
+        el.textContent = "Could not open the telemetry socket. Is the hub running?";
+      };
+      ws.onmessage = (ev) => {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === "snapshot") applySnapshot(msg);
+        if (msg.type === "sample") ingestSample(msg);
+        if (msg.type === "alert") {
+          state.alerts.unshift(msg.alert);
+          renderAlerts();
+        }
+      };
+    }
+    connect();
+  </script>
+</body>
+</html>

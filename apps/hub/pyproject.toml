@@ -1,0 +1,27 @@
+[project]
+name = "smarthouse-hub"
+version = "0.1.0"
+description = "Local smart-house hub: gRPC control plane and WebSocket telemetry."
+readme = "../../README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "aiohttp>=3.10",
+  "grpcio>=1.68",
+  "grpcio-tools>=1.68",
+  "protobuf>=5.29",
+]
+
+[project.scripts]
+smarthouse-hub = "smarthouse_hub.main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["smarthouse_hub*"]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "../.."]
+testpaths = ["tests"]
