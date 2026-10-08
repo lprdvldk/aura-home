@@ -20,14 +20,21 @@ class Settings(BaseSettings):
     http_port: int = 18443
     grpc_host: str = "0.0.0.0"
     grpc_port: int = 18551
-    cors_origins: str = "*"
+    cors_origins: str = "http://127.0.0.1:18443,http://localhost:18443"
     session_hours: int = 12
+    agent_token: str = ""
+    require_agent_token: bool = True
+    tls_certfile: Path | None = None
+    tls_keyfile: Path | None = None
 
     def cors_origin_list(self) -> list[str]:
         raw = self.cors_origins.strip()
         if raw == "*":
             return ["*"]
         return [item.strip() for item in raw.split(",") if item.strip()]
+
+    def uses_tls(self) -> bool:
+        return bool(self.tls_certfile and self.tls_keyfile)
 
 
 def load_settings() -> Settings:

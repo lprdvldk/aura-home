@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19smarthouse/v1/house.proto\x12\rsmarthouse.v1\"\xb9\x01\n\x06\x44\x65vice\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0c\n\x04room\x18\x03 \x01(\t\x12\'\n\x04kind\x18\x04 \x01(\x0e\x32\x19.smarthouse.v1.DeviceKind\x12+\n\x06status\x18\x05 \x01(\x0e\x32\x1b.smarthouse.v1.DeviceStatus\x12\x0f\n\x07\x65nabled\x18\x06 \x01(\x08\x12\x0e\n\x06\x64river\x18\x07 \x01(\t\x12\x10\n\x08gpio_pin\x18\x08 \x01(\x05\"3\n\x06Metric\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x0c\n\x04unit\x18\x03 \x01(\t\"\x95\x01\n\x0cSensorSample\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x0f\n\x07unix_ms\x18\x02 \x01(\x03\x12&\n\x07metrics\x18\x03 \x03(\x0b\x32\x15.smarthouse.v1.Metric\x12\x12\n\nerror_code\x18\x04 \x01(\x05\x12\x15\n\rerror_message\x18\x05 \x01(\t\x12\x0e\n\x06source\x18\x06 \x01(\t\"\x14\n\x12ListDevicesRequest\"=\n\x13ListDevicesResponse\x12&\n\x07\x64\x65vices\x18\x01 \x03(\x0b\x32\x15.smarthouse.v1.Device\"%\n\x10GetLatestRequest\x12\x11\n\tdevice_id\x18\x01 \x01(\t\"7\n\x11SetEnabledRequest\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65nabled\x18\x02 \x01(\x08\"&\n\x12PushSampleResponse\x12\x10\n\x08\x61\x63\x63\x65pted\x18\x01 \x01(\x08\"&\n\x10SubscribeRequest\x12\x12\n\ndevice_ids\x18\x01 \x03(\t*\x8e\x01\n\nDeviceKind\x12\x1b\n\x17\x44\x45VICE_KIND_UNSPECIFIED\x10\x00\x12\x17\n\x13\x44\x45VICE_KIND_CLIMATE\x10\x01\x12\x1b\n\x17\x44\x45VICE_KIND_AIR_QUALITY\x10\x02\x12\x15\n\x11\x44\x45VICE_KIND_LIGHT\x10\x03\x12\x16\n\x12\x44\x45VICE_KIND_MOTION\x10\x04*\xb4\x01\n\x0c\x44\x65viceStatus\x12\x1d\n\x19\x44\x45VICE_STATUS_UNSPECIFIED\x10\x00\x12\x18\n\x14\x44\x45VICE_STATUS_ONLINE\x10\x01\x12\x1b\n\x17\x44\x45VICE_STATUS_SIMULATED\x10\x02\x12\x19\n\x15\x44\x45VICE_STATUS_OFFLINE\x10\x03\x12\x17\n\x13\x44\x45VICE_STATUS_ERROR\x10\x04\x12\x1a\n\x16\x44\x45VICE_STATUS_DISABLED\x10\x05\x32\x8d\x03\n\x08HouseHub\x12T\n\x0bListDevices\x12!.smarthouse.v1.ListDevicesRequest\x1a\".smarthouse.v1.ListDevicesResponse\x12I\n\tGetLatest\x12\x1f.smarthouse.v1.GetLatestRequest\x1a\x1b.smarthouse.v1.SensorSample\x12\x45\n\nSetEnabled\x12 .smarthouse.v1.SetEnabledRequest\x1a\x15.smarthouse.v1.Device\x12L\n\nPushSample\x12\x1b.smarthouse.v1.SensorSample\x1a!.smarthouse.v1.PushSampleResponse\x12K\n\tSubscribe\x12\x1f.smarthouse.v1.SubscribeRequest\x1a\x1b.smarthouse.v1.SensorSample0\x01\x42\x03\xf8\x01\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19smarthouse/v1/house.proto\x12\rsmarthouse.v1\"\xb9\x01\n\x06\x44\x65vice\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0c\n\x04room\x18\x03 \x01(\t\x12\'\n\x04kind\x18\x04 \x01(\x0e\x32\x19.smarthouse.v1.DeviceKind\x12+\n\x06status\x18\x05 \x01(\x0e\x32\x1b.smarthouse.v1.DeviceStatus\x12\x0f\n\x07\x65nabled\x18\x06 \x01(\x08\x12\x0e\n\x06\x64river\x18\x07 \x01(\t\x12\x10\n\x08gpio_pin\x18\x08 \x01(\x05\"3\n\x06Metric\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x0c\n\x04unit\x18\x03 \x01(\t\"\x95\x01\n\x0cSensorSample\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x0f\n\x07unix_ms\x18\x02 \x01(\x03\x12&\n\x07metrics\x18\x03 \x03(\x0b\x32\x15.smarthouse.v1.Metric\x12\x12\n\nerror_code\x18\x04 \x01(\x05\x12\x15\n\rerror_message\x18\x05 \x01(\t\x12\x0e\n\x06source\x18\x06 \x01(\t\"\x14\n\x12ListDevicesRequest\"=\n\x13ListDevicesResponse\x12&\n\x07\x64\x65vices\x18\x01 \x03(\x0b\x32\x15.smarthouse.v1.Device\"%\n\x10GetLatestRequest\x12\x11\n\tdevice_id\x18\x01 \x01(\t\"7\n\x11SetEnabledRequest\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65nabled\x18\x02 \x01(\x08\"&\n\x12PushSampleResponse\x12\x10\n\x08\x61\x63\x63\x65pted\x18\x01 \x01(\x08\"B\n\x12PushSamplesRequest\x12,\n\x07samples\x18\x01 \x03(\x0b\x32\x1b.smarthouse.v1.SensorSample\"9\n\x13PushSamplesResponse\x12\x10\n\x08\x61\x63\x63\x65pted\x18\x01 \x01(\x05\x12\x10\n\x08rejected\x18\x02 \x01(\x05\"&\n\x10SubscribeRequest\x12\x12\n\ndevice_ids\x18\x01 \x03(\t*\x8e\x01\n\nDeviceKind\x12\x1b\n\x17\x44\x45VICE_KIND_UNSPECIFIED\x10\x00\x12\x17\n\x13\x44\x45VICE_KIND_CLIMATE\x10\x01\x12\x1b\n\x17\x44\x45VICE_KIND_AIR_QUALITY\x10\x02\x12\x15\n\x11\x44\x45VICE_KIND_LIGHT\x10\x03\x12\x16\n\x12\x44\x45VICE_KIND_MOTION\x10\x04*\xb4\x01\n\x0c\x44\x65viceStatus\x12\x1d\n\x19\x44\x45VICE_STATUS_UNSPECIFIED\x10\x00\x12\x18\n\x14\x44\x45VICE_STATUS_ONLINE\x10\x01\x12\x1b\n\x17\x44\x45VICE_STATUS_SIMULATED\x10\x02\x12\x19\n\x15\x44\x45VICE_STATUS_OFFLINE\x10\x03\x12\x17\n\x13\x44\x45VICE_STATUS_ERROR\x10\x04\x12\x1a\n\x16\x44\x45VICE_STATUS_DISABLED\x10\x05\x32\xe3\x03\n\x08HouseHub\x12T\n\x0bListDevices\x12!.smarthouse.v1.ListDevicesRequest\x1a\".smarthouse.v1.ListDevicesResponse\x12I\n\tGetLatest\x12\x1f.smarthouse.v1.GetLatestRequest\x1a\x1b.smarthouse.v1.SensorSample\x12\x45\n\nSetEnabled\x12 .smarthouse.v1.SetEnabledRequest\x1a\x15.smarthouse.v1.Device\x12L\n\nPushSample\x12\x1b.smarthouse.v1.SensorSample\x1a!.smarthouse.v1.PushSampleResponse\x12T\n\x0bPushSamples\x12!.smarthouse.v1.PushSamplesRequest\x1a\".smarthouse.v1.PushSamplesResponse\x12K\n\tSubscribe\x12\x1f.smarthouse.v1.SubscribeRequest\x1a\x1b.smarthouse.v1.SensorSample0\x01\x42\x03\xf8\x01\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,10 +32,10 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'smarthouse.v1.house_pb2', _
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\370\001\001'
-  _globals['_DEVICEKIND']._serialized_start=699
-  _globals['_DEVICEKIND']._serialized_end=841
-  _globals['_DEVICESTATUS']._serialized_start=844
-  _globals['_DEVICESTATUS']._serialized_end=1024
+  _globals['_DEVICEKIND']._serialized_start=826
+  _globals['_DEVICEKIND']._serialized_end=968
+  _globals['_DEVICESTATUS']._serialized_start=971
+  _globals['_DEVICESTATUS']._serialized_end=1151
   _globals['_DEVICE']._serialized_start=45
   _globals['_DEVICE']._serialized_end=230
   _globals['_METRIC']._serialized_start=232
@@ -52,8 +52,12 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_SETENABLEDREQUEST']._serialized_end=616
   _globals['_PUSHSAMPLERESPONSE']._serialized_start=618
   _globals['_PUSHSAMPLERESPONSE']._serialized_end=656
-  _globals['_SUBSCRIBEREQUEST']._serialized_start=658
-  _globals['_SUBSCRIBEREQUEST']._serialized_end=696
-  _globals['_HOUSEHUB']._serialized_start=1027
-  _globals['_HOUSEHUB']._serialized_end=1424
+  _globals['_PUSHSAMPLESREQUEST']._serialized_start=658
+  _globals['_PUSHSAMPLESREQUEST']._serialized_end=724
+  _globals['_PUSHSAMPLESRESPONSE']._serialized_start=726
+  _globals['_PUSHSAMPLESRESPONSE']._serialized_end=783
+  _globals['_SUBSCRIBEREQUEST']._serialized_start=785
+  _globals['_SUBSCRIBEREQUEST']._serialized_end=823
+  _globals['_HOUSEHUB']._serialized_start=1154
+  _globals['_HOUSEHUB']._serialized_end=1637
 # @@protoc_insertion_point(module_scope)

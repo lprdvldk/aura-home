@@ -54,6 +54,11 @@ class HouseHubStub:
                 request_serializer=smarthouse_dot_v1_dot_house__pb2.SensorSample.SerializeToString,
                 response_deserializer=smarthouse_dot_v1_dot_house__pb2.PushSampleResponse.FromString,
                 _registered_method=True)
+        self.PushSamples = channel.unary_unary(
+                '/smarthouse.v1.HouseHub/PushSamples',
+                request_serializer=smarthouse_dot_v1_dot_house__pb2.PushSamplesRequest.SerializeToString,
+                response_deserializer=smarthouse_dot_v1_dot_house__pb2.PushSamplesResponse.FromString,
+                _registered_method=True)
         self.Subscribe = channel.unary_stream(
                 '/smarthouse.v1.HouseHub/Subscribe',
                 request_serializer=smarthouse_dot_v1_dot_house__pb2.SubscribeRequest.SerializeToString,
@@ -88,6 +93,12 @@ class HouseHubServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def PushSamples(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Subscribe(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -116,6 +127,11 @@ def add_HouseHubServicer_to_server(servicer, server):
                     servicer.PushSample,
                     request_deserializer=smarthouse_dot_v1_dot_house__pb2.SensorSample.FromString,
                     response_serializer=smarthouse_dot_v1_dot_house__pb2.PushSampleResponse.SerializeToString,
+            ),
+            'PushSamples': grpc.unary_unary_rpc_method_handler(
+                    servicer.PushSamples,
+                    request_deserializer=smarthouse_dot_v1_dot_house__pb2.PushSamplesRequest.FromString,
+                    response_serializer=smarthouse_dot_v1_dot_house__pb2.PushSamplesResponse.SerializeToString,
             ),
             'Subscribe': grpc.unary_stream_rpc_method_handler(
                     servicer.Subscribe,
@@ -231,6 +247,33 @@ class HouseHub:
             '/smarthouse.v1.HouseHub/PushSample',
             smarthouse_dot_v1_dot_house__pb2.SensorSample.SerializeToString,
             smarthouse_dot_v1_dot_house__pb2.PushSampleResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PushSamples(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/smarthouse.v1.HouseHub/PushSamples',
+            smarthouse_dot_v1_dot_house__pb2.PushSamplesRequest.SerializeToString,
+            smarthouse_dot_v1_dot_house__pb2.PushSamplesResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -71,6 +71,15 @@ message PushSampleResponse {
   bool accepted = 1;
 }
 
+message PushSamplesRequest {
+  repeated SensorSample samples = 1;
+}
+
+message PushSamplesResponse {
+  int32 accepted = 1;
+  int32 rejected = 2;
+}
+
 message SubscribeRequest {
   repeated string device_ids = 1; // empty = all enabled devices
 }
@@ -80,5 +89,6 @@ service HouseHub {
   rpc GetLatest(GetLatestRequest) returns (SensorSample);
   rpc SetEnabled(SetEnabledRequest) returns (Device);
   rpc PushSample(SensorSample) returns (PushSampleResponse);
+  rpc PushSamples(PushSamplesRequest) returns (PushSamplesResponse);
   rpc Subscribe(SubscribeRequest) returns (stream SensorSample);
 }

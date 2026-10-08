@@ -36,6 +36,7 @@ def _session_cookie(request: Request, payload: dict[str, Any], token: str) -> JS
         samesite="lax",
         path="/",
         max_age=hours * 3600,
+        secure=request.app.state.settings.uses_tls(),
     )
     return response
 

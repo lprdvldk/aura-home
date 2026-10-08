@@ -7,6 +7,10 @@ services:
     ports:
       - "18443:18443"
       - "18551:18551"
+    environment:
+      SMART_HOUSE_AGENT_TOKEN: ${SMART_HOUSE_AGENT_TOKEN:-local-dev-agent-token}
+      SMART_HOUSE_REQUIRE_AGENT_TOKEN: "true"
+      SMART_HOUSE_CORS_ORIGINS: http://127.0.0.1:18443,http://localhost:18443
     volumes:
       - ./config:/app/config:ro
       - hub-data:/app/data
@@ -16,15 +20,41 @@ services:
       timeout: 3s
       retries: 12
 
+  sensor-agent:
+    image: aura-home-sensor-agent:local
+    build:
+      context: .
+      dockerfile: docker/sensor-agent.Dockerfile
+    depends_on:
+      hub:
+        condition: service_healthy
+    environment:
+      SMART_HOUSE_AGENT_TOKEN: ${SMART_HOUSE_AGENT_TOKEN:-local-dev-agent-token}
+      SMART_HOUSE_GRPC_TARGET: hub:18551
+      SMART_HOUSE_HOUSE_CONFIG: /app/config/house.json
+    volumes:
+      - ./config:/app/config:ro
+    restart: unless-stopped
+
   dht11-agent:
     image: aura-home-dht11-agent:local
     build:
       context: .
       dockerfile: docker/dht11-agent.Dockerfile
+    profiles: ["gpio"]
     depends_on:
       hub:
         condition: service_healthy
-    command: ["--host", "hub", "--port", "18443", "--device-id", "living-room-dht11", "--simulate"]
+    environment:
+      SMART_HOUSE_AGENT_TOKEN: ${SMART_HOUSE_AGENT_TOKEN:-local-dev-agent-token}
+    command:
+      [
+        "--host", "hub",
+        "--port", "18443",
+        "--device-id", "living-room-dht11",
+        "--simulate",
+        "--token", "${SMART_HOUSE_AGENT_TOKEN:-local-dev-agent-token}",
+      ]
     restart: unless-stopped
 
   desktop:

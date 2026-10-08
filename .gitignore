@@ -1,5 +1,11 @@
 .venv/
 data/
+.env
+certs/
+*.pem
+*.key
+!*.example
+
 __pycache__/
 *.py[cod]
 *.egg-info/

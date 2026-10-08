@@ -75,7 +75,7 @@
   <header>
     <div>
       <h1 id="house-name">Smart House</h1>
-      <div class="sub">Local climate and air-quality monitor · gRPC + WebSocket, no Kafka</div>
+      <div class="sub">Local sensors over gRPC · live charts on WebSocket · ingest is token-gated</div>
     </div>
     <div style="display:flex;gap:12px;align-items:center;">
       <a href="/account/login" style="color:#8fd4ce;text-decoration:none;font-size:13px;">Sign in</a>
@@ -109,17 +109,22 @@
       const id = state.selected || Object.keys(state.history)[0];
       const points = state.history[id] || [];
       const kind = state.devices[id]?.kind;
-      const leftName = kind === "air_quality" ? "pm25_ugm3" : "temperature_c";
-      const rightName = kind === "air_quality" ? "co2_ppm" : "humidity_pct";
-      const leftColor = kind === "air_quality" ? "#9b8cff" : "#f0a36a";
-      const rightColor = kind === "air_quality" ? "#c9b37a" : "#6ec8c0";
+      const series = {
+        air_quality: { left: "pm25_ugm3", right: "co2_ppm", label: "PM2.5  ·  CO₂", lc: "#9b8cff", rc: "#c9b37a" },
+        light: { left: "lux", right: null, label: "Illuminance", lc: "#e7b549", rc: "#6ec8c0" },
+        motion: { left: "motion", right: null, label: "Motion", lc: "#e07a7a", rc: "#6ec8c0" },
+      }[kind] || { left: "temperature_c", right: "humidity_pct", label: "Temperature  ·  Humidity", lc: "#f0a36a", rc: "#6ec8c0" };
+      const leftName = series.left;
+      const rightName = series.right;
+      const leftColor = series.lc;
+      const rightColor = series.rc;
       const w = canvas.width, h = canvas.height;
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = "#171d28";
       ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = "#93a0b5";
       ctx.font = "12px Segoe UI, sans-serif";
-      ctx.fillText(kind === "air_quality" ? "PM2.5  ·  CO₂" : "Temperature  ·  Humidity", 16, 18);
+      ctx.fillText(series.label, 16, 18);
       const left = points.map(p => ({ x: p.unix_ms, y: metric(p, leftName) })).filter(p => p.y != null);
       const right = points.map(p => ({ x: p.unix_ms, y: metric(p, rightName) })).filter(p => p.y != null);
       if (!left.length && !right.length) {

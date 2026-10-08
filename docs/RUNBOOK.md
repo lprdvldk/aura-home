@@ -1,20 +1,26 @@
 # How to run Aura Home
 
-Two supported ways: **Docker Compose** (images, closest to CI) and **native** (Python hub + optional Qt on your OS).
+Two supported ways: **Docker Compose** (images, closest to CI) and **native** (Python hub + sensor-agent + optional Qt on your OS).
 
 ## 1. Docker Compose — test the microservices locally
 
 From the repository root:
 
 ```bash
-docker compose build hub dht11-agent
-docker compose up
+cp .env.example .env   # optional; Compose defaults the token to local-dev-agent-token
+docker compose up --build
 ```
 
 - Hub UI: http://127.0.0.1:18443/
 - Sign in / register / bio: http://127.0.0.1:18443/account/register
 - gRPC: `127.0.0.1:18551`
-- DHT11 agent (simulator) posts into the hub once it is healthy
+- `sensor-agent` pushes every `config/house.json` device over `PushSamples` once the hub is healthy
+
+GPIO DHT11 C++ agent (HTTP fallback):
+
+```bash
+docker compose --profile gpio up dht11-agent
+```
 
 Linux desktop image (needs an X11 display):
 
@@ -33,17 +39,21 @@ gzip -dc dist/aura-home-images.tar.gz | docker load
 docker compose up
 ```
 
-That loads `aura-home-hub:local`, `aura-home-dht11-agent:local`, and `aura-home-desktop:local`.
+That loads `aura-home-hub:local`, `aura-home-sensor-agent:local`, `aura-home-dht11-agent:local`, and `aura-home-desktop:local`.
 
 ## 2. Native hub (no Docker)
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r apps/hub/requirements.txt
+.venv/bin/pip install -r apps/hub/requirements.txt -r apps/sensor-agent/requirements.txt
+cp .env.example .env
+# set SMART_HOUSE_AGENT_TOKEN to a long random string
 PYTHONPATH=apps/hub .venv/bin/python -m smarthouse_hub
 # Paths are relative to the working directory (repo root):
 # SMART_HOUSE_HOUSE_CONFIG=config/house.json SMART_HOUSE_DATA_DIR=data/users
 ```
+
+If you skip `.env` and leave the token empty, the hub prints `generated SMART_HOUSE_AGENT_TOKEN=…` — export that in the agent shell.
 
 Open:
 
@@ -53,11 +63,31 @@ Open:
 
 Encrypted accounts land in `data/users/`. Do not commit that directory.
 
-gRPC check:
+gRPC check (queries are unauthenticated; ingest is not):
 
 ```bash
 PYTHONPATH=apps/hub .venv/bin/python examples/grpc_list_devices.py --target 127.0.0.1:18551
 ```
+
+### Multi-sensor gRPC agent
+
+```bash
+export SMART_HOUSE_AGENT_TOKEN=…   # same value as the hub
+PYTHONPATH=apps/hub:apps/sensor-agent .venv/bin/python -m smarthouse_sensor_agent \
+  --target 127.0.0.1:18551
+```
+
+### Optional TLS
+
+```bash
+bash scripts/gen_dev_certs.sh
+SMART_HOUSE_TLS_CERTFILE=certs/hub.crt SMART_HOUSE_TLS_KEYFILE=certs/hub.key \
+  PYTHONPATH=apps/hub .venv/bin/python -m smarthouse_hub
+PYTHONPATH=apps/hub:apps/sensor-agent .venv/bin/python -m smarthouse_sensor_agent \
+  --tls-ca certs/hub.crt
+```
+
+Then open https://127.0.0.1:18443/ (browser will warn on the self-signed cert).
 
 ## 3. Native desktop (macOS / Windows / Linux)
 
@@ -91,31 +121,35 @@ cmake --build build --target smarthouse_desktop
 In the window:
 
 1. Hub host `127.0.0.1`, port `18443` (or the Pi’s LAN address).
-2. **Connect** — live climate/air charts (WebSocket).
+2. **Connect** — live climate/air/light/motion charts (WebSocket).
 3. **Account** — browser login/register/bio against the same hub.
 
-## 4. DHT11 agent
+## 4. DHT11 agent (C++ GPIO / HTTP fallback)
 
-Without hardware (same as Compose):
+Without hardware (same as the Python agent, but HTTP for one device):
 
 ```bash
 cmake -S . -B build-agent -DSMART_HOUSE_BUILD_DESKTOP=OFF
 cmake --build build-agent --target smarthouse_dht11_agent
 ./build-agent/apps/dht11-agent/smarthouse_dht11_agent \
-  --host 127.0.0.1 --port 18443 --device-id living-room-dht11 --simulate
+  --host 127.0.0.1 --port 18443 --device-id living-room-dht11 --simulate \
+  --token "$SMART_HOUSE_AGENT_TOKEN"
 ```
 
 On a Raspberry Pi, wire DHT11 DATA to BCM 16 with a 4.7 kΩ pull-up to 3.3 V, then:
 
 ```bash
 ./build-agent/apps/dht11-agent/smarthouse_dht11_agent \
-  --host <hub-ip> --device-id living-room-dht11 --gpio --pin 16
+  --host <hub-ip> --device-id living-room-dht11 --gpio --pin 16 \
+  --token "$SMART_HOUSE_AGENT_TOKEN"
 ```
+
+Run a second process with `--device-id bedroom-dht11 --pin 20` for another probe, or let `sensor-agent` cover every climate row over gRPC.
 
 ## 5. Tests
 
 ```bash
-PYTHONPATH=apps/hub .venv/bin/pytest apps/hub/tests -q
+PYTHONPATH=apps/hub:apps/sensor-agent .venv/bin/pytest apps/hub/tests apps/sensor-agent/tests -q
 cmake -S . -B build-agent -DSMART_HOUSE_BUILD_DESKTOP=OFF
 cmake --build build-agent
 ctest --test-dir build-agent --output-on-failure

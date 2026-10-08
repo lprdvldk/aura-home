@@ -49,4 +49,6 @@ def test_existing_telemetry_routes_stay_public(client: TestClient) -> None:
     assert login_page.status_code == 200
     devices = client.get("/v1/devices")
     assert devices.status_code == 200
-    assert len(devices.json()["devices"]) == 4
+    kinds = {d["kind"] for d in devices.json()["devices"]}
+    assert {"climate", "air_quality", "light", "motion"} <= kinds
+    assert len(devices.json()["devices"]) >= 7

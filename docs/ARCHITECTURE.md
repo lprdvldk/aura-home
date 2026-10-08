@@ -11,19 +11,22 @@ Local-first household monitor. There is no Kafka, no cloud identity provider, an
                      │  Browser: monitor, login, register, bio  │
                      └───────────────┬──────────────────────────┘
                                      │ HTTP / WebSocket :18443
-                                     │ gRPC :18551
+                                     │ gRPC :18551 (queries)
                      ┌───────────────▼──────────────────────────┐
                      │                 Hub                      │
                      │  Telemetry store (in-memory history)     │
                      │  Device registry (config/house.json)     │
                      │  Account vault (AES-256-GCM at rest)     │
+                     │  Agent token on ingest                   │
+                     │  Optional TLS on HTTP + gRPC             │
                      │  Simulators until a live agent appears   │
                      └───────────────┬──────────────────────────┘
-                                     │ POST /v1/samples  or  HouseHub.PushSample
+                                     │ gRPC PushSample / PushSamples
+                                     │ (x-agent-token or Bearer)
                      ┌───────────────▼──────────────────────────┐
                      │              Agents                      │
-                     │  dht11-agent (GPIO or --simulate)        │
-                     │  future: air quality, light, motion      │
+                     │  sensor-agent: every house.json device   │
+                     │  dht11-agent: GPIO DHT11 HTTP fallback   │
                      └──────────────────────────────────────────┘
 ```
 
@@ -33,16 +36,17 @@ Local-first household monitor. There is no Kafka, no cloud identity provider, an
 | --- | --- | --- | --- |
 | Contract | `proto/smarthouse/v1/house.proto` | — | — |
 | Hub | `apps/hub` | FastAPI + uvicorn (Python 3.12), pydantic-settings | `aura-home-hub:local` |
-| DHT11 agent | `apps/dht11-agent` + `libs/dht11` | C++23 | `aura-home-dht11-agent:local` |
+| Sensor agent | `apps/sensor-agent` | Python gRPC `PushSamples` | `aura-home-sensor-agent:local` |
+| DHT11 agent | `apps/dht11-agent` + `libs/dht11` | C++23 HTTP fallback | `aura-home-dht11-agent:local` |
 | Desktop | `apps/desktop` | Qt 6 / C++23 | `aura-home-desktop:local` (Linux) |
-| House map | `config/house.json` | — | mounted into hub |
+| House map | `config/house.json` | — | mounted into hub and sensor-agent |
 | Encrypted bios | `data/users/*.json` | — | hub volume |
 
-CI (`.github/workflows/ci.yml`) runs hub tests, DHT11 unit tests, then builds those three images and publishes:
+CI (`.github/workflows/ci.yml`) runs hub + sensor-agent tests, DHT11 unit tests, then builds those images and publishes:
 
 - `dist/aura-home-images.tar.gz` — `docker load` this on a laptop
 - `dist/SmartHouse-linux` — Linux desktop executable
-- `dist/smarthouse_dht11_agent-linux` — Linux agent executable
+- `dist/smarthouse_dht11_agent-linux` — Linux GPIO agent executable
 
 Origin/Depot can run the same GitHub Actions YAML.
 
@@ -56,17 +60,33 @@ The hub is **FastAPI + uvicorn** (HTTP, WebSocket, account pages) and **gRPC asy
 | `SMART_HOUSE_DATA_DIR` | `data/users` |
 | `SMART_HOUSE_HTTP_HOST` / `HTTP_PORT` | `0.0.0.0` / `18443` |
 | `SMART_HOUSE_GRPC_HOST` / `GRPC_PORT` | `0.0.0.0` / `18551` |
-| `SMART_HOUSE_CORS_ORIGINS` | `*` |
+| `SMART_HOUSE_CORS_ORIGINS` | `http://127.0.0.1:18443,http://localhost:18443` |
+| `SMART_HOUSE_AGENT_TOKEN` | empty (hub generates one at start if required) |
+| `SMART_HOUSE_REQUIRE_AGENT_TOKEN` | `true` |
+| `SMART_HOUSE_TLS_CERTFILE` / `TLS_KEYFILE` | unset (plain HTTP + insecure gRPC) |
 
 House JSON is parsed with Pydantic (`HouseFile`). Package assets (dashboard, login pages) are loaded via `importlib.resources`, not hardcoded filesystem roots.
 
+## Multi-sensor ingest
+
+`config/house.json` is the registry. Add another DHT11 or a non-DHT11 gadget by appending a device (`kind` + `driver` + optional `gpio_pin`). The Python **sensor-agent** loads the same file and pushes a `PushSamples` batch every `sample_interval_ms`. Filter with `--device` / `--kind` if one host should not own every probe.
+
+gRPC metadata for ingest:
+
+- `x-agent-token: <token>`
+- or `authorization: Bearer <token>`
+
+HTTP fallback (C++ GPIO agent): `POST /v1/samples` with the same headers.
+
+`PushSamples` returns `{accepted, rejected}` so a bad device id does not drop the rest of the batch.
+
 ## Control plane vs data plane
 
-**gRPC `HouseHub`** (`:18551`) is the control plane for gadgets: `ListDevices`, `GetLatest`, `SetEnabled`, `PushSample`, `Subscribe`.
+**gRPC `HouseHub`** (`:18551`) is the control plane: `ListDevices`, `GetLatest`, `SetEnabled`, `PushSample`, `PushSamples`, `Subscribe`.
 
 **WebSocket** `ws://hub:18443/v1/telemetry` is the data plane for charts. The first frame is a snapshot; then `sample` and `alert` events.
 
-**HTTP** mirrors both so the Qt app and agents do not have to link `grpc++`. Existing telemetry routes stay **unauthenticated** so a Pi agent cannot get stuck behind a login.
+**HTTP** mirrors queries so the Qt app does not have to link `grpc++`. **Read** routes stay unauthenticated so charts keep working. **Write ingest** (`POST /v1/samples`) requires the agent token.
 
 **Account HTTP** is separate and **authenticated**:
 
@@ -89,10 +109,20 @@ Bio fields (name, email, phone, date of birth, address, city, country, emergency
 2. **Data key** — Argon2id KDF from the password + per-user random salt → 32-byte AES key. The key is **not** stored.
 3. **Profile** — AES-256-GCM with random 12-byte nonce and AAD `smarthouse-bio-v1`.
 4. **Files** — `data/users/<sha256(username)>.json`, mode `0600`. Filename is not the username.
-5. **Session** — unguessable cookie `sh_session`, HttpOnly, SameSite=Lax. The AES key lives in hub RAM for 12 hours. Restarting the hub forgets sessions; ciphertext stays.
-6. **Transport** — bind to LAN or put TLS in front for anything beyond localhost. The hub itself speaks HTTP for local use.
+5. **Session** — unguessable cookie `sh_session`, HttpOnly, SameSite=Lax, Secure when TLS is enabled. The AES key lives in hub RAM for 12 hours. Restarting the hub forgets sessions; ciphertext stays.
+6. **Transport** — optional hub TLS (`scripts/gen_dev_certs.sh`). Without it, bind to the LAN only.
 
 Wrong password cannot decrypt the blob. The hub never logs profile fields.
+
+## Ingest protection
+
+- Token compare uses `secrets.compare_digest`.
+- Empty `SMART_HOUSE_AGENT_TOKEN` with `REQUIRE_AGENT_TOKEN=true` makes the hub mint a token at startup and print it once — it is not written to disk.
+- CORS is an explicit origin list (not `*`) so a browser on another site cannot drive the API with cookies.
+- Optional TLS covers both uvicorn and the gRPC port from the same cert/key pair.
+- `--no-require-agent-token` is debug-only.
+
+Telemetry **reads** stay open so a Pi outage cannot lock the desktop behind a login prompt. Do not expose the hub to the public internet without TLS and a reverse proxy.
 
 ## Desktop
 
@@ -100,12 +130,13 @@ The Qt process is a viewer/controller only. It does not talk to GPIO. **Connect*
 
 ## Failure and fallback
 
-- If `dht11-agent` is down, the hub simulates climate after `agent_timeout_ms` (5 s).
+- If `sensor-agent` is down, the hub simulates every device after `agent_timeout_ms` (5 s).
 - If WebSocket drops, the dashboard and desktop reconnect; gRPC agents keep posting.
 - If the vault file is truncated, login fails closed; telemetry is unaffected.
+- A rejected sample in `PushSamples` does not abort the rest of the batch.
 
 ## Adding a gadget
 
 1. Entry in `config/house.json`.
-2. Agent pushes `SensorSample` metrics.
+2. Restart hub + sensor-agent (or pass `--device` for a dedicated process).
 3. Hub fans out on the existing WebSocket. No new broker.

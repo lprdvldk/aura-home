@@ -7,7 +7,8 @@
     "temperature_c": { "low": 16, "high": 28 },
     "humidity_pct": { "low": 30, "high": 70 },
     "pm25_ugm3": { "low": 0, "high": 35 },
-    "co2_ppm": { "low": 0, "high": 1200 }
+    "co2_ppm": { "low": 0, "high": 1200 },
+    "lux": { "low": 0, "high": 2000 }
   },
   "devices": [
     {
@@ -29,6 +30,15 @@
       "enabled": true
     },
     {
+      "id": "bathroom-dht11",
+      "name": "Bathroom climate",
+      "room": "Bathroom",
+      "kind": "climate",
+      "driver": "dht11",
+      "gpio_pin": 21,
+      "enabled": true
+    },
+    {
       "id": "kitchen-air",
       "name": "Kitchen air quality",
       "room": "Kitchen",
@@ -42,6 +52,24 @@
       "name": "Living room air quality",
       "room": "Living room",
       "kind": "air_quality",
+      "driver": "simulator",
+      "gpio_pin": 0,
+      "enabled": true
+    },
+    {
+      "id": "hallway-light",
+      "name": "Hallway illuminance",
+      "room": "Hallway",
+      "kind": "light",
+      "driver": "simulator",
+      "gpio_pin": 0,
+      "enabled": true
+    },
+    {
+      "id": "entry-motion",
+      "name": "Entry motion",
+      "room": "Hallway",
+      "kind": "motion",
       "driver": "simulator",
       "gpio_pin": 0,
       "enabled": true

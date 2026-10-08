@@ -7,6 +7,7 @@
 #include <QPainter>
 #include <QValueAxis>
 #include <algorithm>
+#include <optional>
 
 ClimateChart::ClimateChart(QWidget* parent) : QChartView(parent) {
   chart_ = new QChart();
@@ -51,15 +52,47 @@ ClimateChart::ClimateChart(QWidget* parent) : QChartView(parent) {
 void ClimateChart::setSamples(const QString& kind, const QVector<SensorSample>& samples) {
   primary_->clear();
   secondary_->clear();
-  const bool air = kind == QLatin1String("air_quality");
-  primary_->setName(air ? QStringLiteral("PM2.5 µg/m³") : QStringLiteral("Temperature °C"));
-  secondary_->setName(air ? QStringLiteral("CO₂ ppm") : QStringLiteral("Humidity %"));
-  axisY_->setTitleText(air ? QStringLiteral("µg/m³") : QStringLiteral("°C"));
-  axisY2_->setTitleText(air ? QStringLiteral("ppm") : QStringLiteral("% RH"));
-  axisY_->setTitleBrush(QBrush(QColor(air ? QStringLiteral("#9b8cff") : QStringLiteral("#f0a36a"))));
-  axisY2_->setTitleBrush(QBrush(QColor(air ? QStringLiteral("#c9b37a") : QStringLiteral("#6ec8c0"))));
-  primary_->setColor(QColor(air ? QStringLiteral("#9b8cff") : QStringLiteral("#f0a36a")));
-  secondary_->setColor(QColor(air ? QStringLiteral("#c9b37a") : QStringLiteral("#6ec8c0")));
+  QString leftMetric = QStringLiteral("temperature_c");
+  QString rightMetric = QStringLiteral("humidity_pct");
+  QString leftName = QStringLiteral("Temperature °C");
+  QString rightName = QStringLiteral("Humidity %");
+  QString leftUnit = QStringLiteral("°C");
+  QString rightUnit = QStringLiteral("% RH");
+  QColor leftColor(QStringLiteral("#f0a36a"));
+  QColor rightColor(QStringLiteral("#6ec8c0"));
+  bool dual = true;
+  if (kind == QLatin1String("air_quality")) {
+    leftMetric = QStringLiteral("pm25_ugm3");
+    rightMetric = QStringLiteral("co2_ppm");
+    leftName = QStringLiteral("PM2.5 µg/m³");
+    rightName = QStringLiteral("CO₂ ppm");
+    leftUnit = QStringLiteral("µg/m³");
+    rightUnit = QStringLiteral("ppm");
+    leftColor = QColor(QStringLiteral("#9b8cff"));
+    rightColor = QColor(QStringLiteral("#c9b37a"));
+  } else if (kind == QLatin1String("light")) {
+    leftMetric = QStringLiteral("lux");
+    leftName = QStringLiteral("Illuminance lx");
+    leftUnit = QStringLiteral("lx");
+    leftColor = QColor(QStringLiteral("#e7b549"));
+    dual = false;
+  } else if (kind == QLatin1String("motion")) {
+    leftMetric = QStringLiteral("motion");
+    leftName = QStringLiteral("Motion");
+    leftUnit = QStringLiteral("0/1");
+    leftColor = QColor(QStringLiteral("#e07a7a"));
+    dual = false;
+  }
+  primary_->setName(leftName);
+  secondary_->setName(rightName);
+  secondary_->setVisible(dual);
+  axisY2_->setVisible(dual);
+  axisY_->setTitleText(leftUnit);
+  axisY2_->setTitleText(rightUnit);
+  axisY_->setTitleBrush(QBrush(leftColor));
+  axisY2_->setTitleBrush(QBrush(rightColor));
+  primary_->setColor(leftColor);
+  secondary_->setColor(rightColor);
 
   qint64 minX = 0;
   qint64 maxX = 0;
@@ -69,8 +102,8 @@ void ClimateChart::setSamples(const QString& kind, const QVector<SensorSample>& 
   double maxY2 = 1;
   bool any = false;
   for (const auto& sample : samples) {
-    const auto left = sample.metric(air ? QStringLiteral("pm25_ugm3") : QStringLiteral("temperature_c"));
-    const auto right = sample.metric(air ? QStringLiteral("co2_ppm") : QStringLiteral("humidity_pct"));
+    const auto left = sample.metric(leftMetric);
+    const auto right = dual ? sample.metric(rightMetric) : std::nullopt;
     const auto x = sample.unixMs;
     if (left) {
       primary_->append(static_cast<qreal>(x), *left);

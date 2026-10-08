@@ -34,6 +34,10 @@ def generate() -> None:
         "from . import house_pb2 as smarthouse_dot_v1_dot_house__pb2",
     )
     grpc_file.write_text(text, encoding="utf-8")
+    for pkg in (OUT_DIR, OUT_DIR / "smarthouse", OUT_DIR / "smarthouse" / "v1"):
+        init = pkg / "__init__.py"
+        if not init.exists():
+            init.write_text("", encoding="utf-8")
     print(f"generated stubs in {OUT_DIR / 'smarthouse' / 'v1'}")
 
 

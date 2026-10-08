@@ -11,6 +11,8 @@ from smarthouse_hub.models import (
     Metric,
     SensorSample,
 )
+from smarthouse_hub.security import agent_allowed, token_from_metadata
+from smarthouse_hub.settings import Settings
 from smarthouse_hub.store import HouseStore
 
 
@@ -52,8 +54,14 @@ def sample_from_proto(message: house_pb2.SensorSample) -> SensorSample:
 
 
 class HouseHubServicer(house_pb2_grpc.HouseHubServicer):
-    def __init__(self, store: HouseStore) -> None:
+    def __init__(self, store: HouseStore, settings: Settings) -> None:
         self.store = store
+        self.settings = settings
+
+    async def _require_agent(self, context: grpc.aio.ServicerContext) -> None:
+        provided = token_from_metadata(context.invocation_metadata())
+        if not agent_allowed(self.settings, provided):
+            await context.abort(grpc.StatusCode.UNAUTHENTICATED, "invalid agent token")
 
     async def ListDevices(
         self,
@@ -90,11 +98,28 @@ class HouseHubServicer(house_pb2_grpc.HouseHubServicer):
         request: house_pb2.SensorSample,
         context: grpc.aio.ServicerContext,
     ) -> house_pb2.PushSampleResponse:
+        await self._require_agent(context)
         sample = sample_from_proto(request)
         accepted = await self.store.push_sample(sample, from_agent=True)
         if not accepted:
             await context.abort(grpc.StatusCode.FAILED_PRECONDITION, "device missing or disabled")
         return house_pb2.PushSampleResponse(accepted=True)
+
+    async def PushSamples(
+        self,
+        request: house_pb2.PushSamplesRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> house_pb2.PushSamplesResponse:
+        await self._require_agent(context)
+        accepted = 0
+        rejected = 0
+        for item in request.samples:
+            ok = await self.store.push_sample(sample_from_proto(item), from_agent=True)
+            if ok:
+                accepted += 1
+            else:
+                rejected += 1
+        return house_pb2.PushSamplesResponse(accepted=accepted, rejected=rejected)
 
     async def Subscribe(
         self,

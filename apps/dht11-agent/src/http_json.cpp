@@ -31,7 +31,7 @@ void close_socket(socket_t fd) { ::close(fd); }
 }  // namespace
 
 bool post_json(std::string_view host, std::uint16_t port, std::string_view path, std::string_view body,
-               std::string* error) {
+               std::string* error, std::string_view agent_token) {
 #if defined(_WIN32)
   WSADATA wsa{};
   if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
@@ -74,9 +74,11 @@ bool post_json(std::string_view host, std::uint16_t port, std::string_view path,
   req << "POST " << path << " HTTP/1.1\r\n"
       << "Host: " << host << "\r\n"
       << "Content-Type: application/json\r\n"
-      << "Content-Length: " << body.size() << "\r\n"
-      << "Connection: close\r\n\r\n"
-      << body;
+      << "Content-Length: " << body.size() << "\r\n";
+  if (!agent_token.empty()) {
+    req << "X-Agent-Token: " << agent_token << "\r\n";
+  }
+  req << "Connection: close\r\n\r\n" << body;
   const auto payload = req.str();
   const char* cursor = payload.data();
   std::size_t left = payload.size();
