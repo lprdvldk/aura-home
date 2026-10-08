@@ -42,7 +42,7 @@ class HouseStore:
         }
 
     def subscribe(self) -> asyncio.Queue:
-        queue: asyncio.Queue = asyncio.Queue(maxsize=32)
+        queue: asyncio.Queue = asyncio.Queue(maxsize=256)
         self._subscribers.add(queue)
         return queue
 
@@ -143,11 +143,13 @@ class HouseStore:
         return issued
 
     async def _broadcast(self, event: dict[str, Any]) -> None:
-        stale: list[asyncio.Queue[Any]] = []
-        for queue in self._subscribers:
+        for queue in list(self._subscribers):
+            if queue.full():
+                try:
+                    queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
             try:
                 queue.put_nowait(event)
             except asyncio.QueueFull:
-                stale.append(queue)
-        for queue in stale:
-            self.unsubscribe(queue)
+                continue

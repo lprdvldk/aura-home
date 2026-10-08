@@ -22,6 +22,18 @@ def test_agent_sample_marks_device_online(store: HouseStore) -> None:
     asyncio.run(run())
 
 
+def test_broadcast_keeps_slow_subscriber(store: HouseStore) -> None:
+    async def run() -> None:
+        queue = store.subscribe()
+        for i in range(400):
+            await store._broadcast({"type": "sample", "n": i})
+        assert store.subscriber_count() == 1
+        assert queue.qsize() == 256
+        store.unsubscribe(queue)
+
+    asyncio.run(run())
+
+
 def test_unknown_device_rejected(store: HouseStore) -> None:
     async def run() -> None:
         ok = await store.push_sample(

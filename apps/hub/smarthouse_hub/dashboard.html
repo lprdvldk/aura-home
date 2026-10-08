@@ -177,7 +177,7 @@
           const b = document.createElement("button");
           b.className = "device" + (state.selected === d.id ? " active" : "");
           b.innerHTML = `${d.name}<small class="status-${d.status}">${d.status} · ${d.driver}</small>`;
-          b.onclick = () => { state.selected = d.id; renderDevices(); renderKpis(); renderChart(); };
+          b.onclick = () => selectDevice(d.id);
           root.appendChild(b);
         });
       });
@@ -210,7 +210,9 @@
       (msg.devices || []).forEach(d => state.devices[d.id] = d);
       Object.entries(msg.latest || {}).forEach(([id, sample]) => {
         state.latest[id] = sample;
-        (state.history[id] ||= []).push(sample);
+        const hist = state.history[id] ||= [];
+        const last = hist[hist.length - 1];
+        if (!last || last.unix_ms !== sample.unix_ms) hist.push(sample);
       });
       state.alerts = msg.alerts || [];
       if (!state.selected) {
@@ -218,23 +220,50 @@
           || Object.keys(state.devices)[0];
       }
       renderDevices(); renderKpis(); renderChart(); renderAlerts();
+      if (state.selected) loadHistory(state.selected);
     }
     function ingestSample(msg) {
       const sample = msg.sample;
       if (msg.device) state.devices[msg.device.id] = msg.device;
       state.latest[sample.device_id] = sample;
       const hist = state.history[sample.device_id] ||= [];
-      hist.push(sample);
+      const last = hist[hist.length - 1];
+      if (!last || last.unix_ms !== sample.unix_ms) hist.push(sample);
       if (hist.length > 240) hist.splice(0, hist.length - 240);
       renderKpis();
       if (sample.device_id === state.selected) renderChart();
       renderDevices();
     }
+    function selectDevice(id) {
+      state.selected = id;
+      renderDevices();
+      renderKpis();
+      renderChart();
+      loadHistory(id);
+    }
+    async function loadHistory(id) {
+      try {
+        const data = await fetch(`/v1/devices/${encodeURIComponent(id)}/history?limit=180`).then(r => r.json());
+        const points = data.points || [];
+        if (points.length >= (state.history[id] || []).length) {
+          state.history[id] = points.slice(-240);
+          if (state.selected === id) renderChart();
+        }
+      } catch (_) { /* keep whatever the socket already delivered */ }
+    }
+    let reconnectTimer = null;
     function connect() {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
       const proto = location.protocol === "https:" ? "wss" : "ws";
       const ws = new WebSocket(`${proto}://${location.host}/v1/telemetry`);
       ws.onopen = () => { setConn(true, "Live telemetry"); document.getElementById("error").hidden = true; };
-      ws.onclose = () => { setConn(false, "Disconnected — retrying"); setTimeout(connect, 1500); };
+      ws.onclose = () => {
+        setConn(false, "Disconnected — retrying");
+        if (!reconnectTimer) reconnectTimer = setTimeout(connect, 1500);
+      };
       ws.onerror = () => {
         const el = document.getElementById("error");
         el.hidden = false;
@@ -250,7 +279,19 @@
         }
       };
     }
-    connect();
+    async function bootstrap() {
+      try {
+        const snap = await fetch("/v1/snapshot").then(r => r.json());
+        applySnapshot({ type: "snapshot", ...snap });
+        document.getElementById("error").hidden = true;
+      } catch (_) {
+        const el = document.getElementById("error");
+        el.hidden = false;
+        el.textContent = "Could not load the house snapshot. Is the hub running?";
+      }
+      connect();
+    }
+    bootstrap();
   </script>
 </body>
 </html>
