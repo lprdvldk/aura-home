@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Python gRPC stubs from proto/smarthouse/v1/house.proto."""
-
-from __future__ import annotations
+"""Generate Python gRPC stubs from proto/smarthouse/v1/house.proto. Run from the repo root."""
 
 import sys
 from pathlib import Path
@@ -9,9 +7,8 @@ from pathlib import Path
 from grpc_tools import protoc
 
 
-ROOT = Path(__file__).resolve().parents[1]
-PROTO_DIR = ROOT / "proto"
-OUT_DIR = ROOT / "apps" / "hub" / "smarthouse_hub" / "generated"
+PROTO_DIR = Path("proto")
+OUT_DIR = Path("apps/hub/smarthouse_hub/generated")
 
 
 def generate() -> None:
@@ -30,8 +27,6 @@ def generate() -> None:
     if code != 0:
         raise SystemExit(f"protoc failed with exit code {code}")
 
-    # Generated imports are `from smarthouse.v1 import house_pb2`.
-    # Rewrite them to be package-relative so the hub can run without installing proto.
     grpc_file = OUT_DIR / "smarthouse" / "v1" / "house_pb2_grpc.py"
     text = grpc_file.read_text(encoding="utf-8")
     text = text.replace(
@@ -43,4 +38,4 @@ def generate() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(generate())
+    generate()

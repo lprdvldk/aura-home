@@ -1,8 +1,7 @@
-from __future__ import annotations
-
 import asyncio
 import time
-from collections import defaultdict, deque
+from collections import deque
+from typing import Any
 
 from smarthouse_hub.models import (
     Alert,
@@ -34,7 +33,7 @@ class HouseStore:
     def subscriber_count(self) -> int:
         return len(self._subscribers)
 
-    def snapshot(self) -> dict:
+    def snapshot(self) -> dict[str, Any]:
         return {
             "house_name": self.config.house_name,
             "devices": [d.to_json() for d in self.devices.values()],
@@ -87,7 +86,7 @@ class HouseStore:
         await self._broadcast(event)
         return True
 
-    def history_json(self, device_id: str, limit: int = 180) -> list[dict]:
+    def history_json(self, device_id: str, limit: int = 180) -> list[dict[str, Any]]:
         points = list(self.history.get(device_id, ()))
         if limit > 0:
             points = points[-limit:]
@@ -143,8 +142,8 @@ class HouseStore:
             issued.append(alert)
         return issued
 
-    async def _broadcast(self, event: dict) -> None:
-        stale: list[asyncio.Queue] = []
+    async def _broadcast(self, event: dict[str, Any]) -> None:
+        stale: list[asyncio.Queue[Any]] = []
         for queue in self._subscribers:
             try:
                 queue.put_nowait(event)

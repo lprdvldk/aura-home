@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
-"""List hub devices over gRPC."""
-
-from __future__ import annotations
+"""List hub devices over gRPC. Run from the repo root with PYTHONPATH=apps/hub."""
 
 import argparse
 import asyncio
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "apps" / "hub"))
+sys.path.insert(0, str(Path("apps/hub")))
 
 import grpc
 from smarthouse_hub.generated.smarthouse.v1 import house_pb2, house_pb2_grpc

@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import Any, Self
 
 
 class DeviceKind(StrEnum):
@@ -72,7 +70,7 @@ class SensorSample:
         }
 
     @classmethod
-    def from_json(cls, data: dict[str, Any]) -> SensorSample:
+    def from_json(cls, data: dict[str, Any]) -> Self:
         metrics = [
             Metric(name=str(m["name"]), value=float(m["value"]), unit=str(m.get("unit", "")))
             for m in data.get("metrics", [])

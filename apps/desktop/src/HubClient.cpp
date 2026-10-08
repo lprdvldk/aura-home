@@ -1,11 +1,13 @@
 #include "HubClient.hpp"
 
+#include <QAbstractSocket>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QTimer>
+#include <QtGlobal>
 #include <QWebSocket>
 
 HubClient::HubClient(QObject* parent) : QObject(parent) {
@@ -23,9 +25,14 @@ HubClient::HubClient(QObject* parent) : QObject(parent) {
     }
   });
   connect(socket_, &QWebSocket::textMessageReceived, this, &HubClient::handleText);
-  connect(socket_, &QWebSocket::errorOccurred, this, [this](QAbstractSocket::SocketError) {
+  const auto onError = [this](QAbstractSocket::SocketError) {
     emit errorReceived(socket_->errorString());
-  });
+  };
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+  connect(socket_, &QWebSocket::errorOccurred, this, onError);
+#else
+  connect(socket_, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error), this, onError);
+#endif
 }
 
 void HubClient::connectToHub(const QString& host, quint16 port) {

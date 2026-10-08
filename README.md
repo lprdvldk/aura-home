@@ -34,7 +34,7 @@ Then open http://127.0.0.1:18443/ (monitor) and http://127.0.0.1:18443/account/r
 | Path | What it is |
 | --- | --- |
 | `proto/smarthouse/v1/house.proto` | Contract: devices, samples, `HouseHub` RPCs |
-| `apps/hub` | Local hub (Python 3.12): gRPC + REST + WebSocket + live view |
+| `apps/hub` | FastAPI hub (Python 3.12): gRPC + REST + WebSocket + live view |
 | `apps/desktop` | Qt 6 / C++23 desktop with realtime charts |
 | `libs/dht11` | DHT11 frame decoder, simulator, Linux GPIO bit-bang |
 | `apps/dht11-agent` | Pushes DHT11 readings into the hub |
@@ -48,6 +48,7 @@ There is no Kafka, MySQL, or cloud dependency. The hub keeps a rolling in-memory
 python3 -m venv .venv
 .venv/bin/pip install -r apps/hub/requirements.txt
 PYTHONPATH=apps/hub .venv/bin/python -m smarthouse_hub --http-port 18443 --grpc-port 18551
+# optional: SMART_HOUSE_HOUSE_CONFIG=config/house.json SMART_HOUSE_DATA_DIR=data/users
 ```
 
 Open http://127.0.0.1:18443/ for the live climate view, or point the Qt app at that host. Simulated DHT11 and air-quality devices start immediately so you can develop without hardware.

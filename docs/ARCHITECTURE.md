@@ -32,7 +32,7 @@ Local-first household monitor. There is no Kafka, no cloud identity provider, an
 | Component | Path | Runtime | Image |
 | --- | --- | --- | --- |
 | Contract | `proto/smarthouse/v1/house.proto` | — | — |
-| Hub | `apps/hub` | Python 3.12 | `aura-home-hub:local` |
+| Hub | `apps/hub` | FastAPI + uvicorn (Python 3.12), pydantic-settings | `aura-home-hub:local` |
 | DHT11 agent | `apps/dht11-agent` + `libs/dht11` | C++23 | `aura-home-dht11-agent:local` |
 | Desktop | `apps/desktop` | Qt 6 / C++23 | `aura-home-desktop:local` (Linux) |
 | House map | `config/house.json` | — | mounted into hub |
@@ -45,6 +45,20 @@ CI (`.github/workflows/ci.yml`) runs hub tests, DHT11 unit tests, then builds th
 - `dist/smarthouse_dht11_agent-linux` — Linux agent executable
 
 Origin/Depot can run the same GitHub Actions YAML.
+
+## Hub runtime
+
+The hub is **FastAPI + uvicorn** (HTTP, WebSocket, account pages) and **gRPC asyncio** on a second port. Paths come from **pydantic-settings** (`SMART_HOUSE_*`, optional `.env`), relative to the process working directory:
+
+| Setting | Default |
+| --- | --- |
+| `SMART_HOUSE_HOUSE_CONFIG` | `config/house.json` |
+| `SMART_HOUSE_DATA_DIR` | `data/users` |
+| `SMART_HOUSE_HTTP_HOST` / `HTTP_PORT` | `0.0.0.0` / `18443` |
+| `SMART_HOUSE_GRPC_HOST` / `GRPC_PORT` | `0.0.0.0` / `18551` |
+| `SMART_HOUSE_CORS_ORIGINS` | `*` |
+
+House JSON is parsed with Pydantic (`HouseFile`). Package assets (dashboard, login pages) are loaded via `importlib.resources`, not hardcoded filesystem roots.
 
 ## Control plane vs data plane
 

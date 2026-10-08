@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 from collections.abc import AsyncIterator
 
@@ -74,6 +72,7 @@ class HouseHubServicer(house_pb2_grpc.HouseHubServicer):
         sample = self.store.latest.get(request.device_id)
         if sample is None:
             await context.abort(grpc.StatusCode.NOT_FOUND, "no sample yet")
+            raise RuntimeError("unreachable")
         return sample_to_proto(sample)
 
     async def SetEnabled(

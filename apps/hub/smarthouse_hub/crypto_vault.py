@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import base64
 import hashlib
@@ -106,16 +104,9 @@ def sanitize_profile(raw: dict[str, Any] | None) -> dict[str, str]:
     return profile
 
 
-def default_vault_root() -> Path:
-    env = os.environ.get("SMART_HOUSE_DATA")
-    if env:
-        return Path(env)
-    return Path(__file__).resolve().parents[3] / "data" / "users"
-
-
 class UserVault:
     def __init__(self, root: Path | None = None) -> None:
-        self.root = root or default_vault_root()
+        self.root = Path(root) if root is not None else Path("data/users")
         self.root.mkdir(parents=True, exist_ok=True)
         self._lock = asyncio.Lock()
         self._sessions: dict[str, Session] = {}

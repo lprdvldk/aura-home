@@ -41,6 +41,8 @@ That loads `aura-home-hub:local`, `aura-home-dht11-agent:local`, and `aura-home-
 python3 -m venv .venv
 .venv/bin/pip install -r apps/hub/requirements.txt
 PYTHONPATH=apps/hub .venv/bin/python -m smarthouse_hub
+# Paths are relative to the working directory (repo root):
+# SMART_HOUSE_HOUSE_CONFIG=config/house.json SMART_HOUSE_DATA_DIR=data/users
 ```
 
 Open:
