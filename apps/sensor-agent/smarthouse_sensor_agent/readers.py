@@ -1,13 +1,10 @@
+"""Deprecated import path — prefer smarthouse_device_reader."""
+
 from smarthouse_hub.models import Device, SensorSample
 from smarthouse_hub.simulators import simulate_sample
 
 
 def read_sample(device: Device, unix_ms: int) -> SensorSample:
-    """Produce one sample for any configured device.
-
-    DHT11, air-quality, light, and motion all share this path. GPIO DHT11
-    on a Pi still uses the C++ agent; this reader is the gRPC ingest path.
-    """
     sample = simulate_sample(device, unix_ms)
     sample.source = "agent"
     return sample

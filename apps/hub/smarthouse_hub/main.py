@@ -22,11 +22,27 @@ async def simulator_loop(store: HouseStore) -> None:
         await asyncio.sleep(interval)
 
 
-def _pin_agent_token(settings: Settings) -> Settings:
-    if settings.require_agent_token and not settings.agent_token:
+def _pin_secrets(settings: Settings) -> Settings:
+    updates: dict[str, object] = {}
+    if settings.cloud_mode:
+        updates["require_agent_token"] = True
+        updates["require_viewer_token"] = True
+        if not settings.uses_tls():
+            raise RuntimeError(
+                "cloud mode requires TLS; set SMART_HOUSE_TLS_CERTFILE and SMART_HOUSE_TLS_KEYFILE"
+            )
+    require_agent = updates.get("require_agent_token", settings.require_agent_token)
+    require_viewer = updates.get("require_viewer_token", settings.require_viewer_token)
+    if require_agent and not settings.agent_token:
         token = secrets.token_urlsafe(24)
         print(f"generated SMART_HOUSE_AGENT_TOKEN={token}")
-        return settings.model_copy(update={"agent_token": token})
+        updates["agent_token"] = token
+    if require_viewer and not settings.viewer_token:
+        token = secrets.token_urlsafe(24)
+        print(f"generated SMART_HOUSE_VIEWER_TOKEN={token}")
+        updates["viewer_token"] = token
+    if updates:
+        return settings.model_copy(update=updates)
     return settings
 
 
@@ -46,7 +62,7 @@ def _grpc_server(settings: Settings, store: HouseStore) -> grpc.aio.Server:
 
 
 async def serve(settings: Settings) -> None:
-    settings = _pin_agent_token(settings)
+    settings = _pin_secrets(settings)
     config_path = locate_house_config(settings.house_config)
     store = HouseStore(load_house_config(config_path))
     vault = UserVault(settings.data_dir)
@@ -64,7 +80,10 @@ async def serve(settings: Settings) -> None:
     print(f"  Account         {scheme}://{settings.http_host}:{settings.http_port}/account/login")
     print(f"  Telemetry WS    {ws_scheme}://{settings.http_host}:{settings.http_port}/v1/telemetry")
     print(f"  gRPC            {bind}{' (TLS)' if settings.uses_tls() else ' (set TLS cert/key for encryption)'}")
-    print(f"  Agent ingest    gRPC PushSample/PushSamples with x-agent-token")
+    print("  Agent ingest    gRPC PushSample/PushSamples with x-agent-token")
+    if settings.require_viewer_token:
+        print("  Viewer reads    x-viewer-token, account session, or ?token=")
+    print(f"  Cloud mode      {settings.cloud_mode}")
     print(f"  Devices         {len(store.config.devices)}")
 
     sim_task = asyncio.create_task(simulator_loop(store))
@@ -95,6 +114,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config")
     parser.add_argument("--data-dir")
     parser.add_argument("--agent-token")
+    parser.add_argument("--viewer-token")
+    parser.add_argument("--cloud", action="store_true")
     parser.add_argument("--tls-certfile")
     parser.add_argument("--tls-keyfile")
     parser.add_argument(
@@ -123,6 +144,11 @@ def settings_from_args() -> Settings:
         updates["data_dir"] = args.data_dir
     if args.agent_token:
         updates["agent_token"] = args.agent_token
+    if args.viewer_token:
+        updates["viewer_token"] = args.viewer_token
+        updates["require_viewer_token"] = True
+    if args.cloud:
+        updates["cloud_mode"] = True
     if args.tls_certfile:
         updates["tls_certfile"] = args.tls_certfile
     if args.tls_keyfile:

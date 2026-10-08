@@ -15,8 +15,8 @@ jobs:
           python-version: "3.12"
       - name: Hub tests
         run: |
-          python -m pip install -r apps/hub/requirements.txt -r apps/sensor-agent/requirements.txt
-          PYTHONPATH=apps/hub:apps/sensor-agent pytest apps/hub/tests apps/sensor-agent/tests -q
+          python -m pip install -r apps/hub/requirements.txt -r apps/device-reader/requirements.txt
+          PYTHONPATH=apps/hub:apps/device-reader:apps/sensor-agent pytest apps/hub/tests apps/device-reader/tests apps/sensor-agent/tests -q
       - name: DHT11 C++ tests
         run: |
           sudo apt-get update
@@ -32,13 +32,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build service and desktop images
         run: |
-          docker compose build hub sensor-agent
+          docker compose build hub device-reader
           docker compose --profile gpio build dht11-agent
           docker compose --profile desktop build desktop
       - name: Save images for local load
         run: |
           mkdir -p dist
-          docker save aura-home-hub:local aura-home-sensor-agent:local aura-home-dht11-agent:local aura-home-desktop:local | gzip > dist/aura-home-images.tar.gz
+          docker save aura-home-hub:local aura-home-device-reader:local aura-home-dht11-agent:local aura-home-desktop:local | gzip > dist/aura-home-images.tar.gz
           docker create --name desktop-bin aura-home-desktop:local
           docker cp desktop-bin:/usr/local/bin/SmartHouse dist/SmartHouse-linux
           docker rm desktop-bin

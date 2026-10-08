@@ -11,7 +11,12 @@ from smarthouse_hub.models import (
     Metric,
     SensorSample,
 )
-from smarthouse_hub.security import agent_allowed, token_from_metadata
+from smarthouse_hub.security import (
+    agent_allowed,
+    token_from_metadata,
+    viewer_allowed,
+    viewer_from_metadata,
+)
 from smarthouse_hub.settings import Settings
 from smarthouse_hub.store import HouseStore
 
@@ -26,6 +31,8 @@ def device_to_proto(device: Device) -> house_pb2.Device:
         enabled=device.enabled,
         driver=device.driver,
         gpio_pin=device.gpio_pin,
+        protocol=device.protocol,
+        endpoint=device.endpoint,
     )
 
 
@@ -63,11 +70,21 @@ class HouseHubServicer(house_pb2_grpc.HouseHubServicer):
         if not agent_allowed(self.settings, provided):
             await context.abort(grpc.StatusCode.UNAUTHENTICATED, "invalid agent token")
 
+    async def _require_read(self, context: grpc.aio.ServicerContext) -> None:
+        meta = context.invocation_metadata()
+        if not viewer_allowed(
+            self.settings,
+            viewer=viewer_from_metadata(meta),
+            agent=token_from_metadata(meta),
+        ):
+            await context.abort(grpc.StatusCode.UNAUTHENTICATED, "invalid viewer token")
+
     async def ListDevices(
         self,
         request: house_pb2.ListDevicesRequest,
         context: grpc.aio.ServicerContext,
     ) -> house_pb2.ListDevicesResponse:
+        await self._require_read(context)
         return house_pb2.ListDevicesResponse(
             devices=[device_to_proto(d) for d in self.store.devices.values()]
         )
@@ -77,6 +94,7 @@ class HouseHubServicer(house_pb2_grpc.HouseHubServicer):
         request: house_pb2.GetLatestRequest,
         context: grpc.aio.ServicerContext,
     ) -> house_pb2.SensorSample:
+        await self._require_read(context)
         sample = self.store.latest.get(request.device_id)
         if sample is None:
             await context.abort(grpc.StatusCode.NOT_FOUND, "no sample yet")
@@ -88,6 +106,7 @@ class HouseHubServicer(house_pb2_grpc.HouseHubServicer):
         request: house_pb2.SetEnabledRequest,
         context: grpc.aio.ServicerContext,
     ) -> house_pb2.Device:
+        await self._require_read(context)
         if request.device_id not in self.store.devices:
             await context.abort(grpc.StatusCode.NOT_FOUND, "unknown device")
         device = await self.store.set_enabled(request.device_id, request.enabled)
@@ -126,6 +145,7 @@ class HouseHubServicer(house_pb2_grpc.HouseHubServicer):
         request: house_pb2.SubscribeRequest,
         context: grpc.aio.ServicerContext,
     ) -> AsyncIterator[house_pb2.SensorSample]:
+        await self._require_read(context)
         wanted = set(request.device_ids)
         queue = self.store.subscribe()
         try:

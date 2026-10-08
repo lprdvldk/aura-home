@@ -102,6 +102,10 @@
   </main>
   <script>
     const state = { devices: {}, latest: {}, history: {}, selected: null, alerts: [] };
+    const viewer = new URLSearchParams(location.search).get("token") || "";
+    function authHeaders() {
+      return viewer ? { "X-Viewer-Token": viewer } : {};
+    }
     const canvas = document.getElementById("chart");
     const ctx = canvas.getContext("2d");
 
@@ -243,7 +247,9 @@
     }
     async function loadHistory(id) {
       try {
-        const data = await fetch(`/v1/devices/${encodeURIComponent(id)}/history?limit=180`).then(r => r.json());
+        const data = await fetch(`/v1/devices/${encodeURIComponent(id)}/history?limit=180`, {
+          headers: authHeaders(), credentials: "same-origin"
+        }).then(r => r.json());
         const points = data.points || [];
         if (points.length >= (state.history[id] || []).length) {
           state.history[id] = points.slice(-240);
@@ -258,7 +264,8 @@
         reconnectTimer = null;
       }
       const proto = location.protocol === "https:" ? "wss" : "ws";
-      const ws = new WebSocket(`${proto}://${location.host}/v1/telemetry`);
+      const q = viewer ? `?token=${encodeURIComponent(viewer)}` : "";
+      const ws = new WebSocket(`${proto}://${location.host}/v1/telemetry${q}`);
       ws.onopen = () => { setConn(true, "Live telemetry"); document.getElementById("error").hidden = true; };
       ws.onclose = () => {
         setConn(false, "Disconnected — retrying");
@@ -281,7 +288,10 @@
     }
     async function bootstrap() {
       try {
-        const snap = await fetch("/v1/snapshot").then(r => r.json());
+        const snap = await fetch("/v1/snapshot", { headers: authHeaders(), credentials: "same-origin" }).then(r => {
+          if (!r.ok) throw new Error(r.statusText);
+          return r.json();
+        });
         applySnapshot({ type: "snapshot", ...snap });
         document.getElementById("error").hidden = true;
       } catch (_) {

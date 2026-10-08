@@ -35,6 +35,8 @@ message Device {
   bool enabled = 6;
   string driver = 7;  // "dht11", "pms5003", "simulator", ...
   int32 gpio_pin = 8; // used by GPIO drivers; 0 if unused
+  string protocol = 9;  // "gpio", "zigbee", "wifi", "simulator"
+  string endpoint = 10; // zigbee ieee, wifi URL, gpio chip path
 }
 
 message Metric {

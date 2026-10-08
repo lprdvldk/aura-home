@@ -6,6 +6,8 @@
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
+#include <QSslConfiguration>
+#include <QSslError>
 #include <QTimer>
 #include <QtGlobal>
 #include <QWebSocket>
@@ -33,11 +35,29 @@ HubClient::HubClient(QObject* parent) : QObject(parent) {
 #else
   connect(socket_, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error), this, onError);
 #endif
+  connect(socket_, &QWebSocket::sslErrors, this, [this](const QList<QSslError>& errors) {
+    if (allowSelfSigned_) {
+      socket_->ignoreSslErrors();
+      return;
+    }
+    QStringList parts;
+    for (const auto& err : errors) parts << err.errorString();
+    emit errorReceived(parts.join(QStringLiteral("; ")));
+  });
 }
 
-void HubClient::connectToHub(const QString& host, quint16 port) {
-  httpBase_ = QUrl(QStringLiteral("http://%1:%2").arg(host).arg(port));
-  wsUrl_ = QUrl(QStringLiteral("ws://%1:%2/v1/telemetry").arg(host).arg(port));
+void HubClient::connectToHub(const QString& host, quint16 port, const QString& viewerToken, bool tls,
+                            bool allowSelfSigned) {
+  viewerToken_ = viewerToken.trimmed();
+  tls_ = tls;
+  allowSelfSigned_ = allowSelfSigned;
+  const auto scheme = tls ? QStringLiteral("https") : QStringLiteral("http");
+  const auto wsScheme = tls ? QStringLiteral("wss") : QStringLiteral("ws");
+  httpBase_ = QUrl(QStringLiteral("%1://%2:%3").arg(scheme, host).arg(port));
+  wsUrl_ = QUrl(QStringLiteral("%1://%2:%3/v1/telemetry").arg(wsScheme, host).arg(port));
+  if (!viewerToken_.isEmpty()) {
+    wsUrl_.setQuery(QStringLiteral("token=%1").arg(QString::fromUtf8(QUrl::toPercentEncoding(viewerToken_))));
+  }
   wantConnected_ = true;
   openSocket();
 }
@@ -56,8 +76,15 @@ void HubClient::setDeviceEnabled(const QString& deviceId, bool enabled) {
   url.setPath(QStringLiteral("/v1/devices/%1/enabled").arg(deviceId));
   QNetworkRequest req(url);
   req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+  applyAuth(req);
   const auto body = QJsonDocument(QJsonObject{{QStringLiteral("enabled"), enabled}}).toJson(QJsonDocument::Compact);
   http_->post(req, body);
+}
+
+void HubClient::applyAuth(QNetworkRequest& request) const {
+  if (!viewerToken_.isEmpty()) {
+    request.setRawHeader("X-Viewer-Token", viewerToken_.toUtf8());
+  }
 }
 
 void HubClient::openSocket() {
@@ -66,7 +93,13 @@ void HubClient::openSocket() {
     socket_->close();
   }
   emit connectionChanged(false, QStringLiteral("Connecting…"));
-  socket_->open(wsUrl_);
+  QNetworkRequest req(wsUrl_);
+  applyAuth(req);
+  if (tls_) {
+    auto ssl = QSslConfiguration::defaultConfiguration();
+    socket_->setSslConfiguration(ssl);
+  }
+  socket_->open(req);
 }
 
 SensorSample HubClient::parseSample(const QJsonObject& obj) const {

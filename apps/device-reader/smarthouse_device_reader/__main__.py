@@ -1,7 +1,4 @@
-"""Compatibility wrapper. Use `python -m smarthouse_device_reader`."""
-
 from smarthouse_device_reader.main import main
-
 
 if __name__ == "__main__":
     main()

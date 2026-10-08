@@ -6,6 +6,7 @@
 #include "TelemetryStore.hpp"
 #include "Theme.hpp"
 
+#include <QCheckBox>
 #include <QDesktopServices>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -39,7 +40,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   auto* titleBox = new QVBoxLayout;
   auto* title = new QLabel(QStringLiteral("Smart House"));
   title->setStyleSheet(QStringLiteral("font-size: 20px; font-weight: 650;"));
-  auto* subtitle = new QLabel(QStringLiteral("Climate, humidity and air quality in one local desktop app"));
+  auto* subtitle = new QLabel(QStringLiteral("Pulls live sensors from the house hub over TLS WebSocket"));
   subtitle->setProperty("muted", true);
   titleBox->addWidget(title);
   titleBox->addWidget(subtitle);
@@ -48,6 +49,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   port_ = new QSpinBox;
   port_->setRange(1, 65535);
   port_->setValue(18443);
+  viewerToken_ = new QLineEdit;
+  viewerToken_->setPlaceholderText(QStringLiteral("viewer token"));
+  viewerToken_->setEchoMode(QLineEdit::Password);
+  viewerToken_->setMinimumWidth(140);
+  tls_ = new QCheckBox(QStringLiteral("TLS"));
+  allowSelfSigned_ = new QCheckBox(QStringLiteral("Trust self-signed"));
   auto* connectBtn = new QPushButton(QStringLiteral("Connect"));
   connectBtn->setObjectName(QStringLiteral("primary"));
   auto* disconnectBtn = new QPushButton(QStringLiteral("Disconnect"));
@@ -59,6 +66,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   top->addWidget(new QLabel(QStringLiteral("Hub")));
   top->addWidget(host_);
   top->addWidget(port_);
+  top->addWidget(viewerToken_);
+  top->addWidget(tls_);
+  top->addWidget(allowSelfSigned_);
   top->addWidget(connectBtn);
   top->addWidget(disconnectBtn);
   top->addWidget(accountBtn);
@@ -108,11 +118,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   root->addWidget(splitter, 1);
 
   connect(connectBtn, &QPushButton::clicked, this, [this] {
-    client_->connectToHub(host_->text().trimmed(), static_cast<quint16>(port_->value()));
+    client_->connectToHub(host_->text().trimmed(), static_cast<quint16>(port_->value()),
+                          viewerToken_->text(), tls_->isChecked(), allowSelfSigned_->isChecked());
   });
   connect(disconnectBtn, &QPushButton::clicked, client_, &HubClient::disconnectFromHub);
   connect(accountBtn, &QPushButton::clicked, this, [this] {
-    const auto url = QStringLiteral("http://%1:%2/account/login").arg(host_->text().trimmed()).arg(port_->value());
+    const auto scheme = tls_->isChecked() ? QStringLiteral("https") : QStringLiteral("http");
+    const auto url =
+        QStringLiteral("%1://%2:%3/account/login").arg(scheme, host_->text().trimmed()).arg(port_->value());
     QDesktopServices::openUrl(QUrl(url));
   });
   connect(client_, &HubClient::connectionChanged, this, [this](bool ok, const QString& detail) {

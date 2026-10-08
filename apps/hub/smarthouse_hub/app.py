@@ -9,10 +9,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from smarthouse_hub.auth_http import auth_router
-from smarthouse_hub.crypto_vault import UserVault
+from smarthouse_hub.auth_http import COOKIE, auth_router
+from smarthouse_hub.crypto_vault import AuthError, UserVault
 from smarthouse_hub.models import SensorSample
-from smarthouse_hub.security import agent_allowed, token_from_request
+from smarthouse_hub.security import (
+    agent_allowed,
+    token_from_request,
+    viewer_allowed,
+    viewer_from_request,
+    viewer_from_websocket,
+)
 from smarthouse_hub.settings import Settings
 from smarthouse_hub.store import HouseStore
 
@@ -42,6 +48,24 @@ def create_app(store: HouseStore, vault: UserVault, settings: Settings) -> FastA
 
     app.include_router(auth_router)
 
+    def _session_ok(request: Request) -> bool:
+        header = request.headers.get("authorization", "")
+        token = header[7:].strip() if header.lower().startswith("bearer ") else request.cookies.get(COOKIE)
+        try:
+            vault.session(token)
+            return True
+        except AuthError:
+            return False
+
+    def _require_viewer(request: Request) -> None:
+        if not viewer_allowed(
+            settings,
+            viewer=viewer_from_request(request),
+            agent=token_from_request(request),
+            session=_session_ok(request),
+        ):
+            raise HTTPException(status_code=401, detail="invalid viewer token")
+
     @app.get("/")
     async def dashboard() -> FileResponse:
         return FileResponse(package_path("dashboard.html"))
@@ -60,28 +84,33 @@ def create_app(store: HouseStore, vault: UserVault, settings: Settings) -> FastA
         }
 
     @app.get("/v1/snapshot")
-    async def snapshot() -> dict[str, Any]:
+    async def snapshot(request: Request) -> dict[str, Any]:
+        _require_viewer(request)
         return store.snapshot()
 
     @app.get("/v1/devices")
-    async def list_devices() -> dict[str, Any]:
+    async def list_devices(request: Request) -> dict[str, Any]:
+        _require_viewer(request)
         return {"devices": [device.to_json() for device in store.devices.values()]}
 
     @app.get("/v1/devices/{device_id}/latest")
-    async def latest(device_id: str) -> dict[str, Any]:
+    async def latest(request: Request, device_id: str) -> dict[str, Any]:
+        _require_viewer(request)
         sample = store.latest.get(device_id)
         if sample is None:
             raise HTTPException(status_code=404, detail="no sample yet")
         return sample.to_json()
 
     @app.get("/v1/devices/{device_id}/history")
-    async def history(device_id: str, limit: int = 180) -> dict[str, Any]:
+    async def history(request: Request, device_id: str, limit: int = 180) -> dict[str, Any]:
+        _require_viewer(request)
         if device_id not in store.devices:
             raise HTTPException(status_code=404, detail="unknown device")
         return {"points": store.history_json(device_id, limit)}
 
     @app.post("/v1/devices/{device_id}/enabled")
-    async def set_enabled(device_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    async def set_enabled(request: Request, device_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        _require_viewer(request)
         if device_id not in store.devices:
             raise HTTPException(status_code=404, detail="unknown device")
         device = await store.set_enabled(device_id, bool(body.get("enabled", True)))
@@ -99,6 +128,21 @@ def create_app(store: HouseStore, vault: UserVault, settings: Settings) -> FastA
 
     @app.websocket("/v1/telemetry")
     async def telemetry(websocket: WebSocket) -> None:
+        cookie = websocket.cookies.get(COOKIE)
+        session_ok = False
+        try:
+            vault.session(cookie)
+            session_ok = True
+        except AuthError:
+            session_ok = False
+        if not viewer_allowed(
+            settings,
+            viewer=viewer_from_websocket(websocket),
+            agent=websocket.headers.get("x-agent-token", "").strip(),
+            session=session_ok,
+        ):
+            await websocket.close(code=4401)
+            return
         await websocket.accept()
         await websocket.send_json({"type": "snapshot", **store.snapshot()})
         queue = store.subscribe()

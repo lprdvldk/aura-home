@@ -5,6 +5,17 @@ from pydantic import BaseModel, Field
 from smarthouse_hub.models import Device, DeviceKind, HouseConfig, Threshold
 
 
+def infer_protocol(driver: str) -> str:
+    key = (driver or "").lower()
+    if key in {"dht11", "gpio", "bme280", "ds18b20"}:
+        return "gpio"
+    if key in {"zigbee", "zha", "z2m"}:
+        return "zigbee"
+    if key in {"wifi", "http", "esp", "esphome"}:
+        return "wifi"
+    return "simulator"
+
+
 class ThresholdModel(BaseModel):
     low: float
     high: float
@@ -17,6 +28,8 @@ class DeviceModel(BaseModel):
     kind: DeviceKind
     driver: str = "simulator"
     gpio_pin: int = 0
+    protocol: str = ""
+    endpoint: str = ""
     enabled: bool = True
 
 
@@ -43,6 +56,8 @@ class HouseFile(BaseModel):
                     kind=item.kind,
                     driver=item.driver,
                     gpio_pin=item.gpio_pin,
+                    protocol=item.protocol or infer_protocol(item.driver),
+                    endpoint=item.endpoint,
                     enabled=item.enabled,
                 )
                 for item in self.devices

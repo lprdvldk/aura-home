@@ -17,6 +17,7 @@
       "room": "Living room",
       "kind": "climate",
       "driver": "dht11",
+      "protocol": "gpio",
       "gpio_pin": 16,
       "enabled": true
     },
@@ -26,6 +27,7 @@
       "room": "Bedroom",
       "kind": "climate",
       "driver": "dht11",
+      "protocol": "gpio",
       "gpio_pin": 20,
       "enabled": true
     },
@@ -35,6 +37,7 @@
       "room": "Bathroom",
       "kind": "climate",
       "driver": "dht11",
+      "protocol": "gpio",
       "gpio_pin": 21,
       "enabled": true
     },
@@ -44,6 +47,7 @@
       "room": "Kitchen",
       "kind": "air_quality",
       "driver": "simulator",
+      "protocol": "simulator",
       "gpio_pin": 0,
       "enabled": true
     },
@@ -53,6 +57,7 @@
       "room": "Living room",
       "kind": "air_quality",
       "driver": "simulator",
+      "protocol": "simulator",
       "gpio_pin": 0,
       "enabled": true
     },
@@ -62,6 +67,7 @@
       "room": "Hallway",
       "kind": "light",
       "driver": "simulator",
+      "protocol": "simulator",
       "gpio_pin": 0,
       "enabled": true
     },
@@ -71,6 +77,29 @@
       "room": "Hallway",
       "kind": "motion",
       "driver": "simulator",
+      "protocol": "simulator",
+      "gpio_pin": 0,
+      "enabled": true
+    },
+    {
+      "id": "patio-zigbee-motion",
+      "name": "Patio motion",
+      "room": "Patio",
+      "kind": "motion",
+      "driver": "zigbee",
+      "protocol": "zigbee",
+      "endpoint": "sim://patio-motion",
+      "gpio_pin": 0,
+      "enabled": true
+    },
+    {
+      "id": "garage-wifi-climate",
+      "name": "Garage Wi-Fi climate",
+      "room": "Garage",
+      "kind": "climate",
+      "driver": "dht11",
+      "protocol": "wifi",
+      "endpoint": "sim://garage-dht",
       "gpio_pin": 0,
       "enabled": true
     }

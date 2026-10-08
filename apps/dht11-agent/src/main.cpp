@@ -19,6 +19,7 @@ struct Options {
   std::string token;
   int pin{16};
   bool simulate{true};
+  bool once{false};
   int interval_ms{1000};
 };
 
@@ -40,11 +41,13 @@ Options parse(int argc, char** argv) {
     else if (arg == "--pin") opt.pin = std::stoi(next());
     else if (arg == "--gpio") opt.simulate = false;
     else if (arg == "--simulate") opt.simulate = true;
+    else if (arg == "--once") opt.once = true;
     else if (arg == "--interval-ms") opt.interval_ms = std::stoi(next());
     else if (arg == "--help") {
       std::cout <<
-          "dht11-agent --host 127.0.0.1 --port 18443 --device-id living-room-dht11 "
-          "[--token TOKEN] [--simulate|--gpio --pin 16]\n";
+          "smarthouse_dht11_agent — GPIO backend for device-reader\n"
+          "  --once [--gpio --pin 16] --device-id living-room-dht11   print one JSON sample\n"
+          "  --host 127.0.0.1 --port 18443 [--token TOKEN] [--simulate|--gpio]\n";
       std::exit(0);
     }
   }
@@ -86,11 +89,11 @@ int main(int argc, char** argv) {
 #endif
   }
 
-  if (opt.token.empty()) {
+  if (!opt.once && opt.token.empty()) {
     std::clog << "dht11-agent: no --token / SMART_HOUSE_AGENT_TOKEN; hub ingest may return 401\n";
   }
 
-  while (true) {
+  auto one_sample = [&]() -> std::string {
     const auto result = reader->read();
     smarthouse::dht11::Reading reading{};
     int error_code = 0;
@@ -101,12 +104,21 @@ int main(int argc, char** argv) {
       error_code = static_cast<int>(result.error());
       error_message = std::string(smarthouse::dht11::to_string(result.error()));
     }
-    const auto body = sample_json(opt.device_id, reading, error_code, error_message);
+    return sample_json(opt.device_id, reading, error_code, error_message);
+  };
+
+  if (opt.once) {
+    std::cout << one_sample() << '\n';
+    return 0;
+  }
+
+  while (true) {
+    const auto body = one_sample();
     std::string err;
     if (!smarthouse::agent::post_json(opt.host, opt.port, "/v1/samples", body, &err, opt.token)) {
       std::cerr << "push failed: " << err << '\n';
     } else {
-      std::clog << opt.device_id << " t=" << reading.temperature_c << "C rh=" << reading.humidity_pct << "%\n";
+      std::clog << opt.device_id << " sample pushed\n";
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(opt.interval_ms));
   }

@@ -93,6 +93,8 @@ class Device:
     kind: DeviceKind
     driver: str
     gpio_pin: int = 0
+    protocol: str = "simulator"
+    endpoint: str = ""
     enabled: bool = True
     status: DeviceStatus = DeviceStatus.SIMULATED
     last_seen_ms: int = 0
@@ -105,6 +107,8 @@ class Device:
             "kind": self.kind.value,
             "driver": self.driver,
             "gpio_pin": self.gpio_pin,
+            "protocol": self.protocol,
+            "endpoint": self.endpoint,
             "enabled": self.enabled,
             "status": self.status.value,
             "last_seen_ms": self.last_seen_ms,

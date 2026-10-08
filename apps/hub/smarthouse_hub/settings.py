@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     session_hours: int = 12
     agent_token: str = ""
     require_agent_token: bool = True
+    viewer_token: str = ""
+    require_viewer_token: bool = False
+    cloud_mode: bool = False
     tls_certfile: Path | None = None
     tls_keyfile: Path | None = None
 

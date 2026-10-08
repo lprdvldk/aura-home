@@ -4,6 +4,7 @@ Local-first house monitor: multiple climate sensors (DHT11 and anything else you
 
 - **Run everything:** [docs/RUNBOOK.md](docs/RUNBOOK.md)
 - **Architecture layout:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- **Hub in the cloud + Pi sensors:** [docs/CLOUD.md](docs/CLOUD.md)
 
 Quickest local stack (hub + multi-sensor gRPC agent):
 
@@ -27,19 +28,19 @@ Then open http://127.0.0.1:18443/ (monitor) and http://127.0.0.1:18443/account/r
                           │
             ┌─────────────┴──────────────────────────┐
             │                                        │
-     sensor-agent (Python, gRPC)              dht11-agent (C++23, HTTP)
-     every house.json device                  GPIO DHT11 fallback
-     PushSamples + token                      POST /v1/samples + token
+     device-reader (Python, gRPC)             gpio oneshot (C++23)
+     GPIO / Zigbee / Wi-Fi / simulator        smarthouse_dht11_agent --once
+     PushSamples + agent token                used by protocol=gpio
 ```
 
 | Path | What it is |
 | --- | --- |
 | `proto/smarthouse/v1/house.proto` | Contract: devices, samples, `PushSample` / `PushSamples` |
 | `apps/hub` | FastAPI hub (Python 3.12): gRPC + REST + WebSocket + live view |
-| `apps/sensor-agent` | One process that pushes **all** configured sensors over gRPC |
-| `apps/desktop` | Qt 6 / C++23 desktop with realtime charts |
+| `apps/device-reader` | Pi microservice: builder + GPIO/Zigbee/Wi-Fi/simulator → gRPC |
+| `apps/desktop` | Qt 6 / C++23 desktop (TLS + viewer token for a cloud hub) |
 | `libs/dht11` | DHT11 frame decoder, simulator, Linux GPIO bit-bang |
-| `apps/dht11-agent` | C++ GPIO/HTTP fallback for a single DHT11 |
+| `apps/dht11-agent` | C++ GPIO oneshot (`--once`) used by `GpioProtocol` |
 | `config/house.json` | Rooms, devices, GPIO pins, alert thresholds |
 | `.env.example` | Agent token, optional TLS paths |
 
@@ -49,19 +50,20 @@ There is no Kafka, MySQL, or cloud dependency. The hub keeps a rolling in-memory
 
 Every gadget is a row in `config/house.json`. The default house has three DHT11 climate sensors, two air-quality nodes, hallway light, and entry motion. Kinds: `climate` | `air_quality` | `light` | `motion`. Drivers: `dht11` (GPIO pin used by the C++ agent) or `simulator`.
 
-The Python **sensor-agent** reads that file and calls `HouseHub.PushSamples` once per interval, so one process covers every device (more than one DHT11, plus non-DHT11 kinds):
+**device-reader** on a Pi (or laptop) uses a builder: you register protocols, load `house.json`, and `read()` / `write()` each gadget.
 
 ```bash
 export SMART_HOUSE_AGENT_TOKEN=change-me-to-a-long-random-token
-PYTHONPATH=apps/hub:apps/sensor-agent .venv/bin/python -m smarthouse_sensor_agent \
+PYTHONPATH=apps/hub:apps/device-reader .venv/bin/python -m smarthouse_device_reader \
   --target 127.0.0.1:18551
-# only two DHT11s:
-PYTHONPATH=apps/hub:apps/sensor-agent .venv/bin/python -m smarthouse_sensor_agent \
-  --device living-room-dht11 --device bedroom-dht11
-# only motion + light:
-PYTHONPATH=apps/hub:apps/sensor-agent .venv/bin/python -m smarthouse_sensor_agent \
-  --kind motion --kind light
+# GPIO DHT11 on a Pi 4:
+PYTHONPATH=apps/hub:apps/device-reader .venv/bin/python -m smarthouse_device_reader --gpio
+# only zigbee + wifi:
+PYTHONPATH=apps/hub:apps/device-reader .venv/bin/python -m smarthouse_device_reader \
+  --protocol zigbee --protocol wifi
 ```
+
+Put the hub in the cloud with TLS + a separate viewer token: [docs/CLOUD.md](docs/CLOUD.md).
 
 A live gRPC agent heartbeat replaces the hub simulator for those device ids. If the agent stops, the hub falls back to simulation after 5 seconds.
 
@@ -81,7 +83,7 @@ Optional TLS for HTTP/WebSocket **and** gRPC:
 bash scripts/gen_dev_certs.sh
 SMART_HOUSE_TLS_CERTFILE=certs/hub.crt SMART_HOUSE_TLS_KEYFILE=certs/hub.key \
   PYTHONPATH=apps/hub .venv/bin/python -m smarthouse_hub
-PYTHONPATH=apps/hub:apps/sensor-agent .venv/bin/python -m smarthouse_sensor_agent \
+PYTHONPATH=apps/hub:apps/device-reader .venv/bin/python -m smarthouse_device_reader \
   --tls-ca certs/hub.crt
 ```
 
@@ -91,7 +93,7 @@ CORS defaults to the local dashboard origin, not `*`. Session cookies are `HttpO
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r apps/hub/requirements.txt -r apps/sensor-agent/requirements.txt
+.venv/bin/pip install -r apps/hub/requirements.txt -r apps/device-reader/requirements.txt
 cp .env.example .env   # set SMART_HOUSE_AGENT_TOKEN
 PYTHONPATH=apps/hub .venv/bin/python -m smarthouse_hub --http-port 18443 --grpc-port 18551
 ```
@@ -138,7 +140,7 @@ Connect to the hub host (the Pi, or `127.0.0.1` if the hub is local). Charts fol
 
 ## DHT11 on a Raspberry Pi (C++ GPIO fallback)
 
-The Python sensor-agent is the default gRPC path (including extra DHT11s). Use the C++ agent when you want real GPIO bit-bang for one probe:
+device-reader is the default gRPC path. Use `--gpio` plus the C++ oneshot when you want real DHT11 bit-bang on a Pi:
 
 Wiring (3.3 V logic): VCC → 3V3, GND → GND, DATA → GPIO (default 16 / BCM) with a 4.7 kΩ pull-up to 3V3.
 
@@ -155,13 +157,13 @@ On a laptop use `--simulate` (default). `libs/dht11` decodes the 40-bit DHT11 fr
 ## Add another gadget
 
 1. Add a device in `config/house.json` (`kind`: `climate` | `air_quality` | `light` | `motion`).
-2. Restart the hub (it reloads the house map) and the sensor-agent (it pushes every enabled row over `PushSamples`).
+2. Restart the hub (it reloads the house map) and device-reader (it pushes every enabled row over `PushSamples`).
 3. The desktop already charts climate, air quality, light, and motion.
 
 ## Tests
 
 ```bash
-PYTHONPATH=apps/hub:apps/sensor-agent .venv/bin/pytest apps/hub/tests apps/sensor-agent/tests -q
+PYTHONPATH=apps/hub:apps/device-reader:apps/sensor-agent .venv/bin/pytest apps/hub/tests apps/device-reader/tests apps/sensor-agent/tests -q
 cmake -S . -B build-agent -DSMART_HOUSE_BUILD_DESKTOP=OFF
 cmake --build build-agent
 ctest --test-dir build-agent --output-on-failure

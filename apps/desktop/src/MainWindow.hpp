@@ -5,6 +5,7 @@
 class ClimateChart;
 class HubClient;
 class KpiCard;
+class QCheckBox;
 class QLabel;
 class QLineEdit;
 class QSpinBox;
@@ -25,6 +26,9 @@ class MainWindow : public QMainWindow {
   TelemetryStore* store_{};
   QLineEdit* host_{};
   QSpinBox* port_{};
+  QLineEdit* viewerToken_{};
+  QCheckBox* tls_{};
+  QCheckBox* allowSelfSigned_{};
   QLabel* connection_{};
   QLabel* empty_{};
   QLabel* alert_{};

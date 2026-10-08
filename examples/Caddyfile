@@ -1,0 +1,12 @@
+# Terminate TLS on 443 and split gRPC vs HTTP/WebSocket for a cloud hub.
+# Replace hub.example.com. Point A/AAAA at the VPS. Run Caddy in front of:
+#   hub HTTP 127.0.0.1:18443  (plain, loopback only)
+#   hub gRPC 127.0.0.1:18551
+
+hub.example.com {
+  @grpc protocol grpc
+  handle @grpc {
+    reverse_proxy h2c://127.0.0.1:18551
+  }
+  reverse_proxy 127.0.0.1:18443
+}

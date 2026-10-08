@@ -7,6 +7,7 @@ inline QString houseStylesheet() {
     QMainWindow, QWidget#central { background: #10141c; color: #e8eef8; }
     QLabel { color: #e8eef8; }
     QLabel[muted="true"] { color: #93a0b5; }
+    QCheckBox { color: #e8eef8; spacing: 6px; }
     QLineEdit, QSpinBox {
       background: #1d2533; color: #e8eef8; border: 1px solid #2a3344;
       border-radius: 8px; padding: 6px 8px; selection-background-color: #3d4d68;

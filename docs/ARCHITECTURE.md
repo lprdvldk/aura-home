@@ -25,7 +25,7 @@ Local-first household monitor. There is no Kafka, no cloud identity provider, an
                                      │ (x-agent-token or Bearer)
                      ┌───────────────▼──────────────────────────┐
                      │              Agents                      │
-                     │  sensor-agent: every house.json device   │
+                     │  device-reader: gpio / zigbee / wifi     │
                      │  dht11-agent: GPIO DHT11 HTTP fallback   │
                      └──────────────────────────────────────────┘
 ```
@@ -36,13 +36,13 @@ Local-first household monitor. There is no Kafka, no cloud identity provider, an
 | --- | --- | --- | --- |
 | Contract | `proto/smarthouse/v1/house.proto` | — | — |
 | Hub | `apps/hub` | FastAPI + uvicorn (Python 3.12), pydantic-settings | `aura-home-hub:local` |
-| Sensor agent | `apps/sensor-agent` | Python gRPC `PushSamples` | `aura-home-sensor-agent:local` |
-| DHT11 agent | `apps/dht11-agent` + `libs/dht11` | C++23 HTTP fallback | `aura-home-dht11-agent:local` |
+| Device reader | `apps/device-reader` | Python gRPC `PushSamples`, protocol builder | `aura-home-device-reader:local` |
+| GPIO oneshot | `apps/dht11-agent` + `libs/dht11` | C++23 `--once` for `GpioProtocol` | `aura-home-dht11-agent:local` |
 | Desktop | `apps/desktop` | Qt 6 / C++23 | `aura-home-desktop:local` (Linux) |
-| House map | `config/house.json` | — | mounted into hub and sensor-agent |
+| House map | `config/house.json` | — | mounted into hub and device-reader |
 | Encrypted bios | `data/users/*.json` | — | hub volume |
 
-CI (`.github/workflows/ci.yml`) runs hub + sensor-agent tests, DHT11 unit tests, then builds those images and publishes:
+CI (`.github/workflows/ci.yml`) runs hub + device-reader tests, DHT11 unit tests, then builds those images and publishes:
 
 - `dist/aura-home-images.tar.gz` — `docker load` this on a laptop
 - `dist/SmartHouse-linux` — Linux desktop executable
@@ -63,13 +63,16 @@ The hub is **FastAPI + uvicorn** (HTTP, WebSocket, account pages) and **gRPC asy
 | `SMART_HOUSE_CORS_ORIGINS` | `http://127.0.0.1:18443,http://localhost:18443` |
 | `SMART_HOUSE_AGENT_TOKEN` | empty (hub generates one at start if required) |
 | `SMART_HOUSE_REQUIRE_AGENT_TOKEN` | `true` |
+| `SMART_HOUSE_VIEWER_TOKEN` | empty (generated in cloud mode) |
+| `SMART_HOUSE_REQUIRE_VIEWER_TOKEN` | `false` (forced on in cloud mode) |
+| `SMART_HOUSE_CLOUD_MODE` | `false` — TLS + both tokens required when true |
 | `SMART_HOUSE_TLS_CERTFILE` / `TLS_KEYFILE` | unset (plain HTTP + insecure gRPC) |
 
 House JSON is parsed with Pydantic (`HouseFile`). Package assets (dashboard, login pages) are loaded via `importlib.resources`, not hardcoded filesystem roots.
 
 ## Multi-sensor ingest
 
-`config/house.json` is the registry. Add another DHT11 or a non-DHT11 gadget by appending a device (`kind` + `driver` + optional `gpio_pin`). The Python **sensor-agent** loads the same file and pushes a `PushSamples` batch every `sample_interval_ms`. Filter with `--device` / `--kind` if one host should not own every probe.
+`config/house.json` is the registry. Add another DHT11 or a non-DHT11 gadget by appending a device (`kind` + `driver` + `protocol` + optional `gpio_pin` / `endpoint`). **device-reader** loads that file and pushes a `PushSamples` batch every `sample_interval_ms` through the matching protocol (GPIO, Zigbee, Wi-Fi, simulator). Filter with `--device` / `--kind` / `--protocol`.
 
 gRPC metadata for ingest:
 
@@ -130,7 +133,7 @@ The Qt process is a viewer/controller only. It does not talk to GPIO. **Connect*
 
 ## Failure and fallback
 
-- If `sensor-agent` is down, the hub simulates every device after `agent_timeout_ms` (5 s).
+- If `device-reader` is down, the hub simulates every device after `agent_timeout_ms` (5 s).
 - If WebSocket drops, the dashboard and desktop reconnect; gRPC agents keep posting.
 - If the vault file is truncated, login fails closed; telemetry is unaffected.
 - A rejected sample in `PushSamples` does not abort the rest of the batch.
@@ -138,5 +141,5 @@ The Qt process is a viewer/controller only. It does not talk to GPIO. **Connect*
 ## Adding a gadget
 
 1. Entry in `config/house.json`.
-2. Restart hub + sensor-agent (or pass `--device` for a dedicated process).
+2. Restart hub + device-reader (or pass `--device` for a dedicated process).
 3. Hub fans out on the existing WebSocket. No new broker.

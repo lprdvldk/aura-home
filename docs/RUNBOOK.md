@@ -1,6 +1,6 @@
 # How to run Aura Home
 
-Two supported ways: **Docker Compose** (images, closest to CI) and **native** (Python hub + sensor-agent + optional Qt on your OS).
+Two supported ways: **Docker Compose** (images, closest to CI) and **native** (Python hub + device-reader + optional Qt on your OS).
 
 ## 1. Docker Compose — test the microservices locally
 
@@ -14,7 +14,9 @@ docker compose up --build
 - Hub UI: http://127.0.0.1:18443/
 - Sign in / register / bio: http://127.0.0.1:18443/account/register
 - gRPC: `127.0.0.1:18551`
-- `sensor-agent` pushes every `config/house.json` device over `PushSamples` once the hub is healthy
+- `device-reader` pushes every `config/house.json` device (GPIO / Zigbee / Wi-Fi / simulator) over `PushSamples`
+
+Cloud VPS + Pi 4: [CLOUD.md](CLOUD.md).
 
 GPIO DHT11 C++ agent (HTTP fallback):
 
@@ -39,13 +41,13 @@ gzip -dc dist/aura-home-images.tar.gz | docker load
 docker compose up
 ```
 
-That loads `aura-home-hub:local`, `aura-home-sensor-agent:local`, `aura-home-dht11-agent:local`, and `aura-home-desktop:local`.
+That loads `aura-home-hub:local`, `aura-home-device-reader:local`, `aura-home-dht11-agent:local`, and `aura-home-desktop:local`.
 
 ## 2. Native hub (no Docker)
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r apps/hub/requirements.txt -r apps/sensor-agent/requirements.txt
+.venv/bin/pip install -r apps/hub/requirements.txt -r apps/device-reader/requirements.txt
 cp .env.example .env
 # set SMART_HOUSE_AGENT_TOKEN to a long random string
 PYTHONPATH=apps/hub .venv/bin/python -m smarthouse_hub
@@ -69,11 +71,11 @@ gRPC check (queries are unauthenticated; ingest is not):
 PYTHONPATH=apps/hub .venv/bin/python examples/grpc_list_devices.py --target 127.0.0.1:18551
 ```
 
-### Multi-sensor gRPC agent
+### device-reader (GPIO / Zigbee / Wi-Fi)
 
 ```bash
 export SMART_HOUSE_AGENT_TOKEN=…   # same value as the hub
-PYTHONPATH=apps/hub:apps/sensor-agent .venv/bin/python -m smarthouse_sensor_agent \
+PYTHONPATH=apps/hub:apps/device-reader .venv/bin/python -m smarthouse_device_reader \
   --target 127.0.0.1:18551
 ```
 
@@ -83,7 +85,7 @@ PYTHONPATH=apps/hub:apps/sensor-agent .venv/bin/python -m smarthouse_sensor_agen
 bash scripts/gen_dev_certs.sh
 SMART_HOUSE_TLS_CERTFILE=certs/hub.crt SMART_HOUSE_TLS_KEYFILE=certs/hub.key \
   PYTHONPATH=apps/hub .venv/bin/python -m smarthouse_hub
-PYTHONPATH=apps/hub:apps/sensor-agent .venv/bin/python -m smarthouse_sensor_agent \
+PYTHONPATH=apps/hub:apps/device-reader .venv/bin/python -m smarthouse_device_reader \
   --tls-ca certs/hub.crt
 ```
 
@@ -144,12 +146,12 @@ On a Raspberry Pi, wire DHT11 DATA to BCM 16 with a 4.7 kΩ pull-up to 3.3 V, th
   --token "$SMART_HOUSE_AGENT_TOKEN"
 ```
 
-Run a second process with `--device-id bedroom-dht11 --pin 20` for another probe, or let `sensor-agent` cover every climate row over gRPC.
+Run a second GPIO oneshot with `--device-id bedroom-dht11 --pin 20`, or let device-reader cover every climate row over gRPC.
 
 ## 5. Tests
 
 ```bash
-PYTHONPATH=apps/hub:apps/sensor-agent .venv/bin/pytest apps/hub/tests apps/sensor-agent/tests -q
+PYTHONPATH=apps/hub:apps/device-reader:apps/sensor-agent .venv/bin/pytest apps/hub/tests apps/device-reader/tests apps/sensor-agent/tests -q
 cmake -S . -B build-agent -DSMART_HOUSE_BUILD_DESKTOP=OFF
 cmake --build build-agent
 ctest --test-dir build-agent --output-on-failure

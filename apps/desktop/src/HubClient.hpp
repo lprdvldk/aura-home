@@ -16,7 +16,8 @@ class HubClient : public QObject {
  public:
   explicit HubClient(QObject* parent = nullptr);
 
-  void connectToHub(const QString& host, quint16 port);
+  void connectToHub(const QString& host, quint16 port, const QString& viewerToken, bool tls,
+                    bool allowSelfSigned);
   void disconnectFromHub();
   bool isConnected() const;
   QUrl httpBase() const { return httpBase_; }
@@ -34,6 +35,7 @@ class HubClient : public QObject {
 
  private:
   void openSocket();
+  void applyAuth(class QNetworkRequest& request) const;
   void handleText(const QString& text);
   SensorSample parseSample(const QJsonObject& obj) const;
   DeviceInfo parseDevice(const QJsonObject& obj) const;
@@ -43,5 +45,8 @@ class HubClient : public QObject {
   QNetworkAccessManager* http_{};
   QUrl httpBase_;
   QUrl wsUrl_;
+  QString viewerToken_;
+  bool tls_{false};
+  bool allowSelfSigned_{false};
   bool wantConnected_{false};
 };
